@@ -33,6 +33,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.Collections;
 
 import org.HdrHistogram.Recorder;
 import org.apache.bookkeeper.stats.Counter;
@@ -41,6 +45,9 @@ import org.apache.bookkeeper.stats.OpStatsLogger;
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.MutablePair;
+
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -59,6 +66,9 @@ import io.openmessaging.benchmark.utils.RandomGenerator;
 import io.openmessaging.benchmark.utils.Timer;
 import io.openmessaging.benchmark.utils.distributor.KeyDistributor;
 import io.openmessaging.benchmark.worker.commands.ConsumerAssignment;
+import io.openmessaging.benchmark.worker.commands.MovingConsumerAssignment;
+import io.openmessaging.benchmark.worker.commands.TopicSubscription;
+
 import io.openmessaging.benchmark.worker.commands.CountersStats;
 import io.openmessaging.benchmark.worker.commands.CumulativeLatencies;
 import io.openmessaging.benchmark.worker.commands.PeriodStats;
@@ -66,6 +76,8 @@ import io.openmessaging.benchmark.worker.commands.ProducerWorkAssignment;
 import io.openmessaging.benchmark.worker.commands.TopicsInfo;
 
 public class LocalWorker implements Worker, ConsumerCallback {
+
+    ScheduledExecutorService subChangeScheduler = null;
 
     private BenchmarkDriver benchmarkDriver = null;
 
@@ -105,6 +117,39 @@ public class LocalWorker implements Worker, ConsumerCallback {
 
     private boolean consumersArePaused = false;
 
+    private ConsumerAssignment consumerAssignment;
+ 
+    class SubscriptionChangeTask implements Runnable {
+        @Override
+        public void run(){
+            try {
+                log.info("Changing {} subs for {} consumers", consumerAssignment.topicsSubscriptions.size(), consumers.size());
+                Timer timer = new Timer();
+                ArrayList<Pair<String, String>> subscriptions = new ArrayList();
+                for(TopicSubscription sub: consumerAssignment.topicsSubscriptions){
+                    subscriptions.add(new MutablePair<>(sub.topic, sub.subscription));
+                }
+                changeSubscriptions(subscriptions);
+            } catch(Exception e) {
+                log.error("Could NOT change Subscriptions because {}", e.getMessage());
+            }
+        }
+        public void changeSubscriptions(List<Pair<String,String>> subscriptions) {
+            ArrayList<CompletableFuture<Void> > futures = new ArrayList();
+            int counter = 0;
+            Collections.reverse(subscriptions);
+            for(BenchmarkConsumer consumer : consumers) {
+                benchmarkDriver.subscribeConsumerToTopic(consumer, subscriptions.get(counter).getKey());
+                if(counter < subscriptions.size()){
+                    ++counter;
+                }
+           } 
+           //     futures.forEach(CompletableFuture::join);
+            
+        }   
+   } 
+    private SubscriptionChangeTask subscriptionChangeTask = null;
+    
     public LocalWorker() {
         this(NullStatsLogger.INSTANCE);
     }
@@ -158,6 +203,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
         futures.forEach(CompletableFuture::join);
 
         log.info("Created {} topics in {} ms", topics.size(), timer.elapsedMillis());
+       
         return topics;
     }
 
@@ -181,6 +227,20 @@ public class LocalWorker implements Worker, ConsumerCallback {
 
         futures.forEach(f -> consumers.add(f.join()));
         log.info("Created {} consumers in {} ms", consumers.size(), timer.elapsedMillis());
+    
+        if(consumerAssignment instanceof MovingConsumerAssignment) {
+            try {
+                log.info("Adding moving subs");
+                this.consumerAssignment = consumerAssignment;
+
+                subChangeScheduler = Executors.newSingleThreadScheduledExecutor();
+
+                this.subscriptionChangeTask = new SubscriptionChangeTask(); 
+                changeConsumerSubscriptions(consumerAssignment);
+            } catch(IOException e){
+                log.info("error occured in setting up sub change");
+            }
+        }
     }
 
     @Override
@@ -212,8 +272,10 @@ public class LocalWorker implements Worker, ConsumerCallback {
             byte[] payloadData) {
         executor.submit(() -> {
             try {
+                Timer timer = new Timer();
                 while (!testCompleted) {
-                    producers.forEach(producer -> {
+                 
+                   producers.forEach(producer -> {
                         rateLimiter.acquire();
                         final long sendTime = System.nanoTime();
                         producer.sendAsync(Optional.ofNullable(keyDistributor.next()), payloadData)
@@ -233,7 +295,15 @@ public class LocalWorker implements Worker, ConsumerCallback {
                             return null;
                         });
                     });
-                }
+                if(consumerAssignment instanceof MovingConsumerAssignment){
+                    MovingConsumerAssignment mvConsumerAssignment = (MovingConsumerAssignment)consumerAssignment;
+                    if(timer.elapsedMillis() >= mvConsumerAssignment.topicChangeIntervalSeconds*1000){
+                        changeConsumerSubscriptions(consumerAssignment);
+                        timer = new Timer();
+                    }
+                }    
+            }
+
             } catch (Throwable t) {
                 log.error("Got error", t);
             }
@@ -355,11 +425,22 @@ public class LocalWorker implements Worker, ConsumerCallback {
 
             for (BenchmarkConsumer consumer : consumers) {
                 consumer.close();
+               
+            }
+            if(consumerAssignment instanceof MovingConsumerAssignment && benchmarkDriver != null && consumers.size() > 0) {
+                double totalMeanSubTime = 0.0;
+                for(BenchmarkConsumer consumer : consumers) {
+                    double curSubTime = benchmarkDriver.getSubscriptionChangeTime(consumer);
+                    log.info("sub time = {}", curSubTime);
+                    totalMeanSubTime += curSubTime;
+                }    
+                log.info("Mean subscription change time: {}, num consumers = {}",totalMeanSubTime/consumers.size(), consumers.size());
             }
             consumers.clear();
 
             if (benchmarkDriver != null) {
                 benchmarkDriver.close();
+                
                 benchmarkDriver = null;
             }
         } catch (Exception e) {
@@ -369,7 +450,21 @@ public class LocalWorker implements Worker, ConsumerCallback {
 
     @Override
     public void close() throws Exception {
+        if(subChangeScheduler != null && !subChangeScheduler.isShutdown()){
+            subChangeScheduler.shutdown();
+        }
         executor.shutdown();
+    }
+
+    @Override
+    public void changeConsumerSubscriptions(ConsumerAssignment consumerAssignment) throws IOException{
+        if(subscriptionChangeTask != null && consumerAssignment instanceof MovingConsumerAssignment){
+            MovingConsumerAssignment mvConsumerAssignment = (MovingConsumerAssignment)consumerAssignment;
+            subChangeScheduler.scheduleAtFixedRate(subscriptionChangeTask,
+                               (long)mvConsumerAssignment.topicChangeIntervalSeconds ,
+                               (long)mvConsumerAssignment.topicChangeIntervalSeconds, 
+                                TimeUnit.SECONDS);
+        }
     }
 
     private static final ObjectWriter writer = new ObjectMapper().writerWithDefaultPrettyPrinter();

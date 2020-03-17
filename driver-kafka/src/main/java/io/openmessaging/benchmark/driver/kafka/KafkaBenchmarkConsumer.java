@@ -23,28 +23,40 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.HashMap;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.ArrayList;
+import java.util.OptionalDouble;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.PartitionInfo;
 
 import io.openmessaging.benchmark.driver.BenchmarkConsumer;
 import io.openmessaging.benchmark.driver.ConsumerCallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.commons.lang3.time.StopWatch;
 
 public class KafkaBenchmarkConsumer implements BenchmarkConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaBenchmarkConsumer.class);
 
     private final KafkaConsumer<String, byte[]> consumer;
+    private AtomicBoolean isSubscriptionChanged = new AtomicBoolean(false);
+    private String subscription;
 
     private final ExecutorService executor;
     private final Future<?> consumerTask;
     private volatile boolean closing = false;
 
+    private ArrayList<Double> subscriptionChangeTime = new ArrayList<Double>();
     public KafkaBenchmarkConsumer(KafkaConsumer<String, byte[]> consumer, ConsumerCallback callback) {
         this.consumer = consumer;
         this.executor = Executors.newSingleThreadExecutor();
@@ -52,9 +64,37 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer {
         this.consumerTask = this.executor.submit(() -> {
             while (!closing) {
                 try {
+                    if(isSubscriptionChanged.get()){
+                        log.info("Changing subscription");
+                        Set<String> topics = consumer.listTopics().keySet();
+
+                        StringBuffer subs = new StringBuffer();
+                        for(String topic : topics) {
+                            subs = subs.append(topic).append(",");
+                        }
+                        log.info("Current subscriptions = {}", subs.toString());
+                        log.info("sub = {}", subscription);           
+
+                        StopWatch sw = new StopWatch();
+                        sw.start();
+                        unsubscribe();
+                        subscribe();
+                        sw.stop();
+                        log.info("subscription change took {} ms", sw.getTime());
+                        topics.clear();
+                        topics = consumer.listTopics().keySet();
+
+                        subs.setLength(0);
+                        for(String topic : topics) {
+                            subs = subs.append(topic).append(",");
+                        }
+                        log.info("Changed subscriptions = {}", subs.toString());
+          
+                        subscriptionChangeTime.add((double)sw.getTime());
+                    }
+                    Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
                     ConsumerRecords<String, byte[]> records = consumer.poll(100);
 
-                    Map<TopicPartition, OffsetAndMetadata> offsetMap = new HashMap<>();
                     for (ConsumerRecord<String, byte[]> record : records) {
                         callback.messageReceived(record.value(), record.timestamp());
 
@@ -80,4 +120,49 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer {
         consumer.close();
     }
 
+    public boolean isClosed(){
+        boolean closeStatus = closing;
+        return closeStatus;    
+    }
+    
+    public synchronized void unsubscribe() throws Exception {
+        Set<String> topics = consumer.listTopics().keySet();
+        //StringBuffer subs = new StringBuffer();
+        //for(String topic : topics) {
+        //    subs = subs.append(topic).append(",");
+        //}
+        //log.info("Unsub: Current subscriptions = {}", subs.toString());
+        // 
+        if(topics.size() > 0){
+            consumer.unsubscribe();
+        }  
+        //log.info("Unsubscribed"); 
+    }
+
+    public synchronized void setSubscription(String topic) {
+        log.info("prev= {}, cur= {} " , subscription , topic);
+        subscription = topic; 
+        isSubscriptionChanged.set(true);
+    }
+    public synchronized void subscribe() throws Exception {
+        //log.info("subscribing to topic {} " , subscription);
+        consumer.subscribe(Arrays.asList(subscription));
+        //log.info("subscribed");
+        //Set<String> topics = consumer.listTopics().keySet();
+        //StringBuffer subs = new StringBuffer();
+        //for(String topic : topics) {
+        //    subs = subs.append(topic).append(",");
+        //}
+        //log.info("SUb: Current subscriptions = {}", subs.toString()); 
+
+        isSubscriptionChanged.set(false);
+    }
+
+    public synchronized double getAverageSubscriptionChangeTime(){
+        return subscriptionChangeTime
+            .stream()
+            .mapToDouble(a->a)
+            .average()
+            .orElse(0.0D);
+    }
 }

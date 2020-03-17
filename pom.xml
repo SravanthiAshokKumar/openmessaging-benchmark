@@ -32,9 +32,9 @@
 		<module>benchmark-framework</module>
 		<module>driver-api</module>
 
-		<module>driver-pulsar</module>
+<!--		<module>driver-pulsar</module>-->
 		<module>driver-kafka</module>
-		<module>driver-rabbitmq</module>
+	<!--	<module>driver-rabbitmq</module>
 		<module>driver-artemis</module>
 		<module>driver-bookkeeper</module>
 		<module>driver-rocketmq</module>
@@ -42,7 +42,7 @@
 		<module>driver-nats-streaming</module>
 		<module>driver-nsq</module>
 		<module>package</module>
-		<module>docker</module>
+		<module>docker</module> -->
 	</modules>
 
 
@@ -79,7 +79,8 @@
 				<artifactId>license-maven-plugin</artifactId>
 				<version>3.0</version>
 				<configuration>
-					<header>dev/license-header.txt</header>
+				    <skip>true</skip>
+                	<header>dev/license-header.txt</header>
 
 					<excludes>
 						<exclude>LICENSE</exclude>
@@ -125,7 +126,7 @@
 			<artifactId>jackson-dataformat-yaml</artifactId>
 			<version>2.9.3</version>
 		</dependency>
-	</dependencies>
+    </dependencies>
 	
 	<dependencyManagement>
 		<dependencies>
@@ -136,5 +137,16 @@
 		  </dependency>
 		</dependencies>
 	</dependencyManagement>
+<repositories>
+   <repository>
+       <id>org.apache.common</id>
+       <url>https://mvnrepository.com/artifact/org.apache.commons/commons-lang3</url>
+   </repository>
 
+   <repository>
+       <id>com.mycila</id>
+       <url>https://mvnrepository.com/artifact/com.mycila/license-maven-plugin</url>
+   </repository>
+
+</repositories>
 </project>

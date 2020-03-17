@@ -31,6 +31,7 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -64,6 +65,8 @@ public class KafkaBenchmarkDriver implements BenchmarkDriver {
     private Properties consumerProperties;
 
     private AdminClient admin;
+
+
 
     @Override
     public void initialize(File configurationFile, StatsLogger statsLogger) throws IOException {
@@ -124,8 +127,11 @@ public class KafkaBenchmarkDriver implements BenchmarkDriver {
         properties.put(ConsumerConfig.GROUP_ID_CONFIG, subscriptionName);
         KafkaConsumer<String, byte[]> consumer = new KafkaConsumer<>(properties);
         try {
-            consumer.subscribe(Arrays.asList(topic));
-            return CompletableFuture.completedFuture(new KafkaBenchmarkConsumer(consumer, consumerCallback));
+            //consumer.subscribe(Arrays.asList(topic));
+            KafkaBenchmarkConsumer benchmarkConsumer = new KafkaBenchmarkConsumer(consumer, consumerCallback);
+            benchmarkConsumer.setSubscription(topic);
+            benchmarkConsumer.subscribe();
+            return CompletableFuture.completedFuture(benchmarkConsumer);
         } catch (Throwable t) {
             consumer.close();
             CompletableFuture<BenchmarkConsumer> future = new CompletableFuture<>();
@@ -145,6 +151,28 @@ public class KafkaBenchmarkDriver implements BenchmarkDriver {
         admin.close();
     }
 
-    private static final ObjectMapper mapper = new ObjectMapper(new YAMLFactory())
+    @Override
+    public void subscribeConsumerToTopic( BenchmarkConsumer consumer, String topic) {
+        //return CompletableFuture.runAsync(()->{
+            try {
+                KafkaBenchmarkConsumer kConsumer = (KafkaBenchmarkConsumer)consumer;
+                if(!kConsumer.isClosed()){
+                    kConsumer.setSubscription(topic);
+                }
+            } catch(Exception e) {
+                throw new RuntimeException(e);
+            }
+       // });
+    }
+
+    @Override
+    public double getSubscriptionChangeTime(BenchmarkConsumer consumer) {
+        if( consumer instanceof KafkaBenchmarkConsumer){
+            KafkaBenchmarkConsumer kConsumer = (KafkaBenchmarkConsumer) consumer;
+            return kConsumer.getAverageSubscriptionChangeTime();
+        }
+        return 0.0;
+    }    
+private static final ObjectMapper mapper = new ObjectMapper(new YAMLFactory())
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 }

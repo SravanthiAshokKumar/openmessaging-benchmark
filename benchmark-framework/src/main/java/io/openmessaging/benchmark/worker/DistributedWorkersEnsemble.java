@@ -248,6 +248,7 @@ public class DistributedWorkersEnsemble implements Worker {
         return stats;
     }
 
+    
     @Override
     public void resetStats() throws IOException {
         sendPost(workers, "/reset-stats", new byte[0]);
@@ -312,6 +313,8 @@ public class DistributedWorkersEnsemble implements Worker {
         });
     }
 
+    @Override 
+    public void changeConsumerSubscriptions(ConsumerAssignment consumerAssignment) throws IOException{}
     @Override
     public void close() throws Exception {
         httpClient.close();

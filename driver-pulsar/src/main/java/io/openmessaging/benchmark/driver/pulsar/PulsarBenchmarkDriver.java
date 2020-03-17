@@ -41,6 +41,7 @@ import org.apache.pulsar.common.policies.data.PersistencePolicies;
 import org.apache.pulsar.common.policies.data.TenantInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.commons.lang3.tuple.Pair;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -211,4 +212,7 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
 
     private static final ObjectWriter writer = new ObjectMapper().writerWithDefaultPrettyPrinter();
     private static final Logger log = LoggerFactory.getLogger(PulsarBenchmarkProducer.class);
+
+    @Override
+    public void changeSubscription(List<Pair<String, String>> subscriptions){}
 }

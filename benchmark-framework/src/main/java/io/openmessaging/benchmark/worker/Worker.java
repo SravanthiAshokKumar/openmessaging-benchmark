@@ -39,6 +39,8 @@ public interface Worker extends AutoCloseable {
 
     void createConsumers(ConsumerAssignment consumerAssignment) throws IOException;
 
+    void changeConsumerSubscriptions(ConsumerAssignment consumerAssignment) throws IOException;
+
     void probeProducers() throws IOException;
 
     void startLoad(ProducerWorkAssignment producerWorkAssignment) throws IOException;
@@ -58,4 +60,5 @@ public interface Worker extends AutoCloseable {
     void resetStats() throws IOException;
 
     void stopAll() throws IOException;
+
 }

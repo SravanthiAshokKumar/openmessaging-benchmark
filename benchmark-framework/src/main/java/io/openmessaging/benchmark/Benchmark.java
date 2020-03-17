@@ -61,6 +61,11 @@ public class Benchmark {
                 "--workers-file" }, description = "Path to a YAML file containing the list of workers addresses")
         public File workersFile;
 
+        @Parameter(names = { "-t",
+                "--workload-type" }, description = "Workload type: (static|moving)")
+        public String workloadType;
+
+
         @Parameter(description = "Workloads", required = true)
         public List<String> workloads;
     }
@@ -100,18 +105,27 @@ public class Benchmark {
             log.info("Reading workers list from {}", arguments.workersFile);
             arguments.workers = mapper.readValue(arguments.workersFile, Workers.class).workers;
         }
-
         // Dump configuration variables
         log.info("Starting benchmark with config: {}", writer.writeValueAsString(arguments));
 
+        if(arguments.workloadType == null || arguments.workloadType == "static") {
+
+        }
         Map<String, Workload> workloads = new TreeMap<>();
         for (String path : arguments.workloads) {
             File file = new File(path);
             String name = file.getName().substring(0, file.getName().lastIndexOf('.'));
 
-            workloads.put(name, mapper.readValue(file, Workload.class));
-        }
+            if(arguments.workloadType == null || arguments.workloadType.equals("static")) {
 
+                workloads.put(name, mapper.readValue(file, Workload.class));
+            }
+            else if(arguments.workloadType != null && arguments.workloadType.equals("moving")){
+
+                workloads.put(name, mapper.readValue(file, MovingWorkload.class));
+ 
+            }
+        }
         log.info("Workloads: {}", writer.writeValueAsString(workloads));
 
         Worker worker;

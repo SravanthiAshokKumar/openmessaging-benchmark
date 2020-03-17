@@ -38,6 +38,7 @@ import io.openmessaging.benchmark.utils.payload.FilePayloadReader;
 import io.openmessaging.benchmark.utils.payload.PayloadReader;
 import io.openmessaging.benchmark.worker.Worker;
 import io.openmessaging.benchmark.worker.commands.ConsumerAssignment;
+import io.openmessaging.benchmark.worker.commands.MovingConsumerAssignment;
 import io.openmessaging.benchmark.worker.commands.CountersStats;
 import io.openmessaging.benchmark.worker.commands.CumulativeLatencies;
 import io.openmessaging.benchmark.worker.commands.PeriodStats;
@@ -63,7 +64,13 @@ public class WorkloadGenerator implements AutoCloseable {
         this.driverName = driverName;
         this.workload = workload;
         this.worker = worker;
-
+        log.info("driver name = " + driverName);
+        if(workload instanceof MovingWorkload){
+            log.info("got moving workload");
+        }
+        else {
+            log.info("got static workload");
+        }
         if (workload.consumerBacklogSizeGB > 0 && workload.producerRate == 0) {
             throw new IllegalArgumentException("Cannot probe producer sustainable rate when building backlog");
         }
@@ -71,7 +78,17 @@ public class WorkloadGenerator implements AutoCloseable {
 
     public TestResult run() throws Exception {
         Timer timer = new Timer();
-        List<String> topics = worker.createTopics(new TopicsInfo(workload.topics, workload.partitionsPerTopic));
+        List<String> topics;
+  
+        /*if(workload instanceof MovingWorkload){
+            MovingWorkload mvWorkload = (MovingWorkload)workload;
+            log.info("Moving workload; creating {} topics" , mvWorkload.topics + (int)Math.ceil(mvWorkload.topics * mvWorkload.fractionTopicsChange) );
+           topics = worker.createTopics(new TopicsInfo(mvWorkload.topics + (int)Math.ceil(mvWorkload.topics * mvWorkload.fractionTopicsChange), mvWorkload.partitionsPerTopic));
+ 
+        }
+        else {}*/
+        topics = worker.createTopics(new TopicsInfo(workload.topics, workload.partitionsPerTopic));
+        
         log.info("Created {} topics in {} ms", topics.size(), timer.elapsedMillis());
 
         createConsumers(topics);
@@ -272,8 +289,9 @@ public class WorkloadGenerator implements AutoCloseable {
         executor.shutdownNow();
     }
 
-    private void createConsumers(List<String> topics) throws IOException {
-        ConsumerAssignment consumerAssignment = new ConsumerAssignment();
+    
+    private ConsumerAssignment createConsumerAssignment(List<String> topics){
+         ConsumerAssignment consumerAssignment = new ConsumerAssignment();
 
         for(String topic: topics){
             for(int i = 0; i < workload.subscriptionsPerTopic; i++){
@@ -286,7 +304,21 @@ public class WorkloadGenerator implements AutoCloseable {
         }
 
         Collections.shuffle(consumerAssignment.topicsSubscriptions);
+        if(this.workload instanceof MovingWorkload){
+            MovingWorkload mvWorkload = (MovingWorkload)workload;
+            MovingConsumerAssignment mvConsumerAssignment = new MovingConsumerAssignment();
+            mvConsumerAssignment.topicChangeIntervalSeconds = mvWorkload.topicChangeIntervalSeconds;
+            mvConsumerAssignment.fractionTopicsChange = mvWorkload.fractionTopicsChange;
+            mvConsumerAssignment.topicsSubscriptions = consumerAssignment.topicsSubscriptions;
+            log.info("created moving consumer with {} seconds topic change interval and {} fraction topic change", mvConsumerAssignment.topicChangeIntervalSeconds, mvConsumerAssignment.fractionTopicsChange);
+            return mvConsumerAssignment;
+        }
 
+        return consumerAssignment;
+   
+    }
+    private void createConsumers(List<String> topics) throws IOException {
+        ConsumerAssignment consumerAssignment = createConsumerAssignment(topics);
         Timer timer = new Timer();
 
         worker.createConsumers(consumerAssignment);
