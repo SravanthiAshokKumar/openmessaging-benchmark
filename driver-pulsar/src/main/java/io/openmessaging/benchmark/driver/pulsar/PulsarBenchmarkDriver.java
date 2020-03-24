@@ -25,6 +25,8 @@ import java.util.Collections;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
+import java.util.ArrayList;
 
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.apache.pulsar.client.admin.PulsarAdmin;
@@ -33,6 +35,8 @@ import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.client.admin.PulsarAdminException.ConflictException;
 import org.apache.pulsar.client.api.ClientBuilder;
 import org.apache.pulsar.client.api.ProducerBuilder;
+import org.apache.pulsar.client.api.ConsumerBuilder;
+
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.SubscriptionType;
 import org.apache.pulsar.common.policies.data.BacklogQuota;
@@ -42,6 +46,7 @@ import org.apache.pulsar.common.policies.data.TenantInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.time.StopWatch;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -56,7 +61,6 @@ import io.openmessaging.benchmark.driver.BenchmarkProducer;
 import io.openmessaging.benchmark.driver.ConsumerCallback;
 import io.openmessaging.benchmark.driver.pulsar.config.PulsarClientConfig.PersistenceConfiguration;
 import io.openmessaging.benchmark.driver.pulsar.config.PulsarConfig;
-
 public class PulsarBenchmarkDriver implements BenchmarkDriver {
 
     private PulsarClient client;
@@ -64,17 +68,18 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
 
     private PulsarConfig config;
 
-
-
     private String namespace;
     private ProducerBuilder<byte[]> producerBuilder;
-
+    
+    private HashMap<String, ConsumerBuilder<byte[]>> consumerBuilders;
+    ArrayList<Double> subscriptionChangeTime;
     @Override
     public void initialize(File configurationFile, StatsLogger statsLogger) throws IOException {
         this.config = readConfig(configurationFile);
         log.info("Pulsar driver configuration: {}", writer.writeValueAsString(config));
-
-        ClientBuilder clientBuilder = PulsarClient.builder()
+        consumerBuilders = new HashMap<String, ConsumerBuilder<byte[]>>();
+        subscriptionChangeTime = new ArrayList<Double>(); 
+       ClientBuilder clientBuilder = PulsarClient.builder()
                 .ioThreads(config.client.ioThreads)
                 .connectionsPerBroker(config.client.connectionsPerBroker)
                 .statsInterval(0, TimeUnit.SECONDS)
@@ -171,11 +176,17 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
     @Override
     public CompletableFuture<BenchmarkConsumer> createConsumer(String topic, String subscriptionName,
                     ConsumerCallback consumerCallback) {
-        return client.newConsumer().subscriptionType(SubscriptionType.Failover).messageListener((consumer, msg) -> {
+        ConsumerBuilder<byte[]> cb = client.newConsumer().subscriptionType(SubscriptionType.Failover).messageListener((consumer, msg) -> {
             consumerCallback.messageReceived(msg.getData(), msg.getPublishTime());
             consumer.acknowledgeAsync(msg);
-        }).topic(topic).subscriptionName(subscriptionName).subscribeAsync()
-                        .thenApply(consumer -> new PulsarBenchmarkConsumer(consumer));
+        });
+        cb.topic(topic).subscriptionName(subscriptionName);
+        consumerBuilders.put(subscriptionName, cb);
+        
+        for(String key: consumerBuilders.keySet()){
+            log.info("Added {}", key);
+        } 
+        return cb.subscribeAsync().thenApply(consumer -> new PulsarBenchmarkConsumer(consumer));
 
 
     }
@@ -214,5 +225,36 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
     private static final Logger log = LoggerFactory.getLogger(PulsarBenchmarkProducer.class);
 
     @Override
-    public void changeSubscription(List<Pair<String, String>> subscriptions){}
+    public synchronized double getSubscriptionChangeTime(BenchmarkConsumer consumer){
+        return subscriptionChangeTime
+                .stream()
+                .mapToDouble(a->a)
+                .average()
+                .orElse(0.0D);
+     }
+    @Override
+    public void subscribeConsumerToTopic(BenchmarkConsumer consumer, String topic){
+        try {
+             StopWatch sw = new StopWatch();
+             PulsarBenchmarkConsumer pConsumer = (PulsarBenchmarkConsumer)consumer;
+            log.info("sub = {}, old topic = {}, new topic ={}",pConsumer.getSubscription(), pConsumer.getTopic(), topic);
+ 
+            if(consumerBuilders.containsKey(pConsumer.getSubscription())){
+                log.info("changing topic");   
+             ConsumerBuilder cb = consumerBuilders.get(pConsumer.getSubscription()).topic(topic);
+                sw.start();
+                pConsumer.unsubscribe();
+                pConsumer.setConsumer(cb.subscribe());
+                sw.stop();
+                consumerBuilders.put(pConsumer.getSubscription(), cb); 
+            log.info("sub change took {}ms", sw.getTime());          
+            subscriptionChangeTime.add((double)sw.getTime());
+            
+
+            }
+            
+        } catch(Exception e){
+           log.error("Could not change topic " + e.getMessage()); 
+        }
+    }
 }

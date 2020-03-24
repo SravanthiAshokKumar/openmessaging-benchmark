@@ -22,17 +22,31 @@ import org.apache.pulsar.client.api.Consumer;
 
 import io.openmessaging.benchmark.driver.BenchmarkConsumer;
 
+
 public class PulsarBenchmarkConsumer implements BenchmarkConsumer {
 
-    private final Consumer<byte[]> consumer;
+    private Consumer<byte[]> consumer;
 
     public PulsarBenchmarkConsumer(Consumer<byte[]> consumer) {
         this.consumer = consumer;
     }
 
+    public void setConsumer(Consumer<byte[]> consumer) {
+        this.consumer = consumer;
+    }
     @Override
     public void close() throws Exception {
         consumer.close();
     }
 
+    public String getSubscription() {
+        return consumer.getSubscription();
+    }
+    public void unsubscribe() throws Exception {
+        consumer.unsubscribe();
+    } 
+    
+    public String getTopic(){
+        return consumer.getTopic();
+    }    
 }
