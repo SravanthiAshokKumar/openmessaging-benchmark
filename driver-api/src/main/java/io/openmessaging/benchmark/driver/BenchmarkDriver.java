@@ -58,7 +58,7 @@ public interface BenchmarkDriver extends AutoCloseable {
      */
     CompletableFuture<BenchmarkProducer> createProducer(String topic);
     
-    void subscribeConsumerToTopic( BenchmarkConsumer consumer, String topic);
+    CompletableFuture<Void> subscribeConsumerToTopic( BenchmarkConsumer consumer, String topic);
     /**
      * Create a benchmark consumer relative to one particular topic and subscription.
      * 

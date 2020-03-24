@@ -152,8 +152,8 @@ public class KafkaBenchmarkDriver implements BenchmarkDriver {
     }
 
     @Override
-    public void subscribeConsumerToTopic( BenchmarkConsumer consumer, String topic) {
-        //return CompletableFuture.runAsync(()->{
+    public CompletableFuture<Void> subscribeConsumerToTopic( BenchmarkConsumer consumer, String topic) {
+        return CompletableFuture.runAsync(()->{
             try {
                 KafkaBenchmarkConsumer kConsumer = (KafkaBenchmarkConsumer)consumer;
                 if(!kConsumer.isClosed()){
@@ -162,7 +162,7 @@ public class KafkaBenchmarkDriver implements BenchmarkDriver {
             } catch(Exception e) {
                 throw new RuntimeException(e);
             }
-       // });
+        });
     }
 
     @Override

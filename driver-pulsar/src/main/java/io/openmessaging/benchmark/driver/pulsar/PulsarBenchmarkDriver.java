@@ -233,28 +233,29 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
                 .orElse(0.0D);
      }
     @Override
-    public void subscribeConsumerToTopic(BenchmarkConsumer consumer, String topic){
-        try {
-             StopWatch sw = new StopWatch();
-             PulsarBenchmarkConsumer pConsumer = (PulsarBenchmarkConsumer)consumer;
-            log.info("sub = {}, old topic = {}, new topic ={}",pConsumer.getSubscription(), pConsumer.getTopic(), topic);
+    public CompletableFuture<Void> subscribeConsumerToTopic(BenchmarkConsumer consumer, String topic){
+        return CompletableFuture.runAsync(()->{
+            try {
+                 StopWatch sw = new StopWatch();
+                 PulsarBenchmarkConsumer pConsumer = (PulsarBenchmarkConsumer)consumer;
+                log.info("sub = {}, old topic = {}, new topic ={}",pConsumer.getSubscription(), pConsumer.getTopic(), topic);
  
-            if(consumerBuilders.containsKey(pConsumer.getSubscription())){
-                log.info("changing topic");   
-             ConsumerBuilder cb = consumerBuilders.get(pConsumer.getSubscription()).topic(topic);
-                sw.start();
-                pConsumer.unsubscribe();
-                pConsumer.setConsumer(cb.subscribe());
-                sw.stop();
-                consumerBuilders.put(pConsumer.getSubscription(), cb); 
-            log.info("sub change took {}ms", sw.getTime());          
-            subscriptionChangeTime.add((double)sw.getTime());
-            
+                if(consumerBuilders.containsKey(pConsumer.getSubscription())){
+                    log.info("changing topic");   
+                 ConsumerBuilder cb = consumerBuilders.get(pConsumer.getSubscription()).topic(topic);
+                    sw.start();
+                    pConsumer.unsubscribe();
+                    pConsumer.setConsumer(cb.subscribe());
+                    sw.stop();
+                    consumerBuilders.put(pConsumer.getSubscription(), cb); 
+                log.info("sub change took {}ms", sw.getTime());          
+                subscriptionChangeTime.add((double)sw.getTime());
+                
 
-            }
+                }
             
-        } catch(Exception e){
-           log.error("Could not change topic " + e.getMessage()); 
-        }
+            } catch(Exception e){
+                log.error("Could not change topic " + e.getMessage()); 
+            }});
     }
 }

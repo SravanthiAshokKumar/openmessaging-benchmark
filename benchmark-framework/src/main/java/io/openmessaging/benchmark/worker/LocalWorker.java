@@ -139,12 +139,13 @@ public class LocalWorker implements Worker, ConsumerCallback {
             int counter = 0;
             Collections.reverse(subscriptions);
             for(BenchmarkConsumer consumer : consumers) {
-                benchmarkDriver.subscribeConsumerToTopic(consumer, subscriptions.get(counter).getKey());
+                futures.add(benchmarkDriver.subscribeConsumerToTopic(consumer, subscriptions.get(counter).getKey()));
                 if(counter < subscriptions.size()){
                     ++counter;
                 }
-           } 
-           //     futures.forEach(CompletableFuture::join);
+           
+            } 
+           futures.forEach(CompletableFuture::join);
             
         }   
    } 
