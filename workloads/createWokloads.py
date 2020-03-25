@@ -56,7 +56,7 @@ def generateYamlFiles(maxTopics, topicIncrement, maxSubscriptions, consumerIncre
                             testDurationMinutes,\
                             topicChangeIntervalSeconds,\
                             fractionTopicsChange)     
-             writeYaml(conf + '_' + str(topics) + '-topics-' + str(consumers) + '-subscriptions.yaml')
+             writeYaml(conf ,'_' + str(topics) + '-topics-' + str(consumers) + '-subscriptions.yaml')
 
 if __name__ == '__main__':
     generateYamlFiles( 10, 2, 5, 1, 0.2)
