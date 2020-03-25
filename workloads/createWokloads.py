@@ -20,7 +20,7 @@ def getYaml(topics,\
              "messageSize": messageSize,\
              "payloadFile": payloadFile,\
              "subscriptionsPerTopic": subscriptionsPerTopic,\
-             "consumersPerSubscription": consumersPerSubscription,\
+             "consumerPerSubscription": consumersPerSubscription,\
              "producersPerTopic": producersPerTopic,\
              "producerRate": producerRate,\
              "testDurationMinutes": testDurationMinutes,\
@@ -43,7 +43,7 @@ def generateYamlFiles(maxTopics, topicIncrement, maxSubscriptions, consumerIncre
     testDurationMinutes = 3
     topicChangeIntervalSeconds = 30
     
-    for topics in range(1, maxTopics, topicIncrement):
+    for topics in range(2, maxTopics+1, topicIncrement):
          for consumers in range(1, maxSubscriptions, consumerIncrement):
              conf = getYaml(topics,\
                             partitionsPerTopic,\
@@ -56,7 +56,7 @@ def generateYamlFiles(maxTopics, topicIncrement, maxSubscriptions, consumerIncre
                             testDurationMinutes,\
                             topicChangeIntervalSeconds,\
                             fractionTopicsChange)     
-             writeYaml(conf , str(topics) + '-topics-' + str(consumers) + '-subscriptions.yaml')
+             writeYaml(conf , 'testWorkloads/' + str(topics) + '-topics-' + str(consumers) + '-subscriptions.yaml')
 
 if __name__ == '__main__':
     generateYamlFiles( 10, 2, 5, 1, 0.2)
