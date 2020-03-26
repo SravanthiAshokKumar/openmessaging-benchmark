@@ -18,7 +18,7 @@ restart_kafka()
     rm -rf /tmp/kafka-logs
 
     #start kafka
-    $KAFKA_PATH/bin/kafka-server-start.sh $KAFKA_PATH/config/server.properties & > /dev/null &
+    $KAFKA_PATH/bin/kafka-server-start.sh $KAFKA_PATH/config/server.properties & > /dev/null 
     #wait for broker to start up
     sleep 30
 }
@@ -67,9 +67,9 @@ do
      elif [ $driver = "pulsar" ]
      then
         restart_pulsar
-        run_benchmark "driver-kafka/kafka.yaml" "moving" $entry
+        run_benchmark "driver-pulsar/pulsar.yaml" "moving" $entry
      fi 
-     break
+    break
 done
 
 shutdown_all

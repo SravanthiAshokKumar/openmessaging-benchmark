@@ -143,6 +143,9 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer {
         //log.info("Unsubscribed"); 
     }
 
+    public synchronized String getTopic() {
+        return subscription;
+    }
     public synchronized void setSubscription(String topic) {
         log.info("prev= {}, cur= {} " , subscription , topic);
         subscription = topic; 

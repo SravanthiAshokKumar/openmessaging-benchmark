@@ -20,6 +20,8 @@ package io.openmessaging.benchmark.worker;
 
 import static java.util.stream.Collectors.toList;
 
+import java.lang.Math;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -37,6 +39,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.Collections;
+import java.util.Random;
 
 import org.HdrHistogram.Recorder;
 import org.apache.bookkeeper.stats.Counter;
@@ -120,29 +123,62 @@ public class LocalWorker implements Worker, ConsumerCallback {
     private ConsumerAssignment consumerAssignment;
  
     class SubscriptionChangeTask implements Runnable {
-        @Override
+
+        private List<Integer> getRandomSample(int totalElements, double fractionToSample){ 
+            Random rand = new Random(); 
+            List<Integer> curList = new ArrayList<>();
+            for( int i = 0; i < totalElements; ++i){
+                curList.add(i);
+            }
+            List<Integer> newList = new ArrayList(); 
+            int sampleSize = (int)Math.ceil(fractionToSample * (double)totalElements);
+            // need at least 2 consumers to work
+            if(sampleSize % 2 == 1){
+                ++sampleSize;
+            }
+            for (int i = 0; i < sampleSize; i++) { 
+  
+                int randomIndex = rand.nextInt(curList.size()); 
+                newList.add(curList.get(randomIndex)); 
+                curList.remove(randomIndex); 
+            } 
+            return newList; 
+        }
+    
+        private String getRandomSubscription(List<String> items, String excludeItem){
+            Random rand = new Random();
+            List<String> tempList = new ArrayList<>();
+            for(String item: items){
+                if(!item.equals(excludeItem)){
+                    tempList.add(item);
+                }
+            }
+            return tempList.get(rand.nextInt(tempList.size()));
+        }
         public void run(){
             try {
                 log.info("Changing {} subs for {} consumers", consumerAssignment.topicsSubscriptions.size(), consumers.size());
                 Timer timer = new Timer();
-                ArrayList<Pair<String, String>> subscriptions = new ArrayList();
+                ArrayList<String> topics = new ArrayList();
                 for(TopicSubscription sub: consumerAssignment.topicsSubscriptions){
-                    subscriptions.add(new MutablePair<>(sub.topic, sub.subscription));
+                    topics.add(sub.topic);
                 }
-                changeSubscriptions(subscriptions);
+                changeSubscriptions(topics);
             } catch(Exception e) {
                 log.error("Could NOT change Subscriptions because {}", e.getMessage());
             }
         }
-        public void changeSubscriptions(List<Pair<String,String>> subscriptions) {
+        public void changeSubscriptions(List<String> topics) {
             ArrayList<CompletableFuture<Void> > futures = new ArrayList();
-            int counter = 0;
-            Collections.reverse(subscriptions);
-            for(BenchmarkConsumer consumer : consumers) {
-                futures.add(benchmarkDriver.subscribeConsumerToTopic(consumer, subscriptions.get(counter).getKey()));
-                if(counter < subscriptions.size()){
-                    ++counter;
-                }
+            List<Integer> randomSampleIdx = getRandomSample(consumers.size(), ((MovingConsumerAssignment)consumerAssignment).fractionTopicsChange);
+          
+            List<BenchmarkConsumer> sampledConsumers = new ArrayList<>();
+            for(int i = 0; i < randomSampleIdx.size(); ++i){
+                sampledConsumers.add(consumers.get(randomSampleIdx.get(i)));
+            }   
+            for(BenchmarkConsumer consumer : sampledConsumers) {
+                String newTopic = getRandomSubscription(topics, consumer.getTopic()); 
+                futures.add(benchmarkDriver.subscribeConsumerToTopic(consumer, newTopic));
            
             } 
            futures.forEach(CompletableFuture::join);
