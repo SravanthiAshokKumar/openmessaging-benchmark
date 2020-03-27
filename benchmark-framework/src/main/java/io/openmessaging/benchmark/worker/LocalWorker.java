@@ -74,7 +74,11 @@ import io.openmessaging.benchmark.worker.commands.TopicSubscription;
 
 import io.openmessaging.benchmark.worker.commands.CountersStats;
 import io.openmessaging.benchmark.worker.commands.CumulativeLatencies;
+import io.openmessaging.benchmark.worker.commands.MovingCumulativeLatencies;
 import io.openmessaging.benchmark.worker.commands.PeriodStats;
+import io.openmessaging.benchmark.worker.commands.MovingPeriodStats;
+
+
 import io.openmessaging.benchmark.worker.commands.ProducerWorkAssignment;
 import io.openmessaging.benchmark.worker.commands.TopicsInfo;
 
@@ -115,6 +119,12 @@ public class LocalWorker implements Worker, ConsumerCallback {
     private final Recorder endToEndLatencyRecorder = new Recorder(TimeUnit.HOURS.toMicros(12), 5);
     private final Recorder endToEndCumulativeLatencyRecorder = new Recorder(TimeUnit.HOURS.toMicros(12), 5);
     private final OpStatsLogger endToEndLatencyStats;
+
+
+    private final Recorder subscriptionChangeLatencyRecorder = new Recorder(TimeUnit.HOURS.toMicros(12), 5);
+    private final Recorder subscriptionChangeCumulativeLatencyRecorder = new Recorder(TimeUnit.HOURS.toMicros(12), 5);
+
+
 
     private boolean testCompleted = false;
 
@@ -181,10 +191,16 @@ public class LocalWorker implements Worker, ConsumerCallback {
                 futures.add(benchmarkDriver.subscribeConsumerToTopic(consumer, newTopic));
            
             } 
-           futures.forEach(CompletableFuture::join);
-            
+            futures.forEach(CompletableFuture::join);
+            for(BenchmarkConsumer consumer: consumers){
+                double curSubTime = benchmarkDriver.getSubscriptionChangeTime(consumer);
+                log.info("cur sub time = {}", curSubTime);
+                subscriptionChangeLatencyRecorder.recordValue(TimeUnit.MILLISECONDS.toMicros((long)curSubTime));
+                subscriptionChangeCumulativeLatencyRecorder.recordValue(TimeUnit.MILLISECONDS.toMicros((long)curSubTime));
+ 
+            } 
         }   
-   } 
+    } 
     private SubscriptionChangeTask subscriptionChangeTask = null;
     
     public LocalWorker() {
@@ -359,7 +375,6 @@ public class LocalWorker implements Worker, ConsumerCallback {
     @Override
     public PeriodStats getPeriodStats() {
         PeriodStats stats = new PeriodStats();
-
         stats.messagesSent = messagesSent.sumThenReset();
         stats.bytesSent = bytesSent.sumThenReset();
 
@@ -371,6 +386,24 @@ public class LocalWorker implements Worker, ConsumerCallback {
 
         stats.publishLatency = publishLatencyRecorder.getIntervalHistogram();
         stats.endToEndLatency = endToEndLatencyRecorder.getIntervalHistogram();
+        if(this.consumerAssignment instanceof MovingConsumerAssignment){
+            log.info("moving stats");
+            MovingPeriodStats mStats = new MovingPeriodStats();
+            mStats.subscriptionChangeLatency = subscriptionChangeLatencyRecorder.getIntervalHistogram();
+            mStats.messagesSent = stats.messagesSent;
+            mStats.bytesSent = stats.bytesSent;
+
+            mStats.messagesReceived = stats.messagesReceived;
+            mStats.bytesReceived = stats.bytesReceived;
+
+            mStats.totalMessagesSent = stats.totalMessagesSent;
+            mStats.totalMessagesReceived = stats.totalMessagesReceived;
+            mStats.publishLatency = stats.publishLatency;
+            mStats.endToEndLatency = stats.endToEndLatency;
+            return mStats;
+        } 
+    
+
         return stats;
     }
 
@@ -379,6 +412,14 @@ public class LocalWorker implements Worker, ConsumerCallback {
         CumulativeLatencies latencies = new CumulativeLatencies();
         latencies.publishLatency = cumulativePublishLatencyRecorder.getIntervalHistogram();
         latencies.endToEndLatency = endToEndCumulativeLatencyRecorder.getIntervalHistogram();
+        if( consumerAssignment instanceof MovingConsumerAssignment){
+
+            MovingCumulativeLatencies mvLatencies = new MovingCumulativeLatencies();
+            mvLatencies.publishLatency = latencies.publishLatency;
+            mvLatencies.endToEndLatency = latencies.endToEndLatency;
+            mvLatencies.subscriptionChangeLatency = subscriptionChangeCumulativeLatencyRecorder.getIntervalHistogram();
+            return mvLatencies;
+    }
         return latencies;
     }
 
@@ -433,6 +474,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
         cumulativePublishLatencyRecorder.reset();
         endToEndLatencyRecorder.reset();
         endToEndCumulativeLatencyRecorder.reset();
+        subscriptionChangeLatencyRecorder.reset();
     }
 
     @Override
@@ -444,6 +486,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
         cumulativePublishLatencyRecorder.reset();
         endToEndLatencyRecorder.reset();
         endToEndCumulativeLatencyRecorder.reset();
+        subscriptionChangeLatencyRecorder.reset();
 
         messagesSent.reset();
         bytesSent.reset();

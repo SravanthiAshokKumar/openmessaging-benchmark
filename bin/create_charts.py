@@ -55,6 +55,12 @@ def create_charts(test_results):
                      y_label='LatencyAvg msec',
                      time_series=[(x['driver'], x['endToEndLatencyAvg']) for x in results])
 
+        if 'subscriptionChangeLatencyAvg' in x:
+            create_chart(workload, 'subscriptionChangeLatencyAvg',
+                         y_label='SubscriptionChangeLatencyAvg msec',
+                         time_series=[(x['driver'], x['subscriptionChangeLatencyAvg']) for x in results])
+
+
         create_quantile_chart(workload, 'Publish latency quantiles',
                               y_label='Latency (ms)',
                               time_series=[(x['driver'], x['aggregatedPublishLatencyQuantiles']) for x in results])

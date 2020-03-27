@@ -73,4 +73,18 @@ public class TestResult {
     public double aggregatedEndToEndLatency999pct;
     public double aggregatedEndToEndLatency9999pct;
     public double aggregatedEndToEndLatencyMax;
+
+    public List<Double> subscriptionChangeLatencyAvg = new ArrayList<>();
+    public List<Double> subscriptionChangeLatency50pct = new ArrayList<>();
+    public List<Double> subscriptionChangeLatency75pct = new ArrayList<>();
+    public List<Double> subscriptionChangeLatency95pct = new ArrayList<>();
+    public List<Double> subscriptionChangeLatency99pct = new ArrayList<>();
+     public List<Double> subscriptionChangeLatencyMax = new ArrayList<>();
+ 
+    public double aggregatedsubscriptionChangeLatencyAvg;
+    public double aggregatedsubscriptionChangeLatency50pct;
+    public double aggregatedsubscriptionChangeLatency75pct;
+    public double aggregatedsubscriptionChangeLatency95pct;
+    public double aggregatedsubscriptionChangeLatency99pct;
+    public double aggregatedsubscriptionChangeLatencyMax;
 }

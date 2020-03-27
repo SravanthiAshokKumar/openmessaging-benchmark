@@ -41,7 +41,10 @@ import io.openmessaging.benchmark.worker.commands.ConsumerAssignment;
 import io.openmessaging.benchmark.worker.commands.MovingConsumerAssignment;
 import io.openmessaging.benchmark.worker.commands.CountersStats;
 import io.openmessaging.benchmark.worker.commands.CumulativeLatencies;
+import io.openmessaging.benchmark.worker.commands.MovingCumulativeLatencies;
 import io.openmessaging.benchmark.worker.commands.PeriodStats;
+import io.openmessaging.benchmark.worker.commands.MovingPeriodStats;
+
 import io.openmessaging.benchmark.worker.commands.ProducerWorkAssignment;
 import io.openmessaging.benchmark.worker.commands.TopicSubscription;
 import io.openmessaging.benchmark.worker.commands.TopicsInfo;
@@ -453,6 +456,17 @@ public class WorkloadGenerator implements AutoCloseable {
             result.endToEndLatency9999pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(99.99)));
             result.endToEndLatencyMax.add(microsToMillis(stats.endToEndLatency.getMaxValue()));
 
+            if(stats instanceof MovingPeriodStats){
+                MovingPeriodStats mStats = (MovingPeriodStats)stats;
+                result.subscriptionChangeLatencyAvg.add(microsToMillis(mStats.subscriptionChangeLatency.getMean()));
+                result.subscriptionChangeLatency50pct.add(microsToMillis(mStats.endToEndLatency.getValueAtPercentile(50)));
+                result.subscriptionChangeLatency75pct.add(microsToMillis(mStats.endToEndLatency.getValueAtPercentile(75)));
+                result.subscriptionChangeLatency95pct.add(microsToMillis(mStats.endToEndLatency.getValueAtPercentile(95)));
+                result.subscriptionChangeLatency99pct.add(microsToMillis(mStats.endToEndLatency.getValueAtPercentile(99)));
+                result.subscriptionChangeLatencyMax.add(microsToMillis(mStats.endToEndLatency.getMaxValue()));
+
+            }
+
             if (now >= testEndTime && !needToWaitForBacklogDraining) {
                 CumulativeLatencies agg = worker.getCumulativeLatencies();
                 log.info(
@@ -483,6 +497,16 @@ public class WorkloadGenerator implements AutoCloseable {
                 result.aggregatedEndToEndLatency9999pct = agg.endToEndLatency.getValueAtPercentile(99.99)  / 1000.0;
                 result.aggregatedEndToEndLatencyMax = agg.endToEndLatency.getMaxValue()  / 1000.0;
 
+                if( agg instanceof MovingCumulativeLatencies){
+                    MovingCumulativeLatencies mvAgg = (MovingCumulativeLatencies)agg;
+                    result.aggregatedsubscriptionChangeLatencyAvg = mvAgg.subscriptionChangeLatency.getMean()  / 1000.0;
+                    result.aggregatedsubscriptionChangeLatency50pct = mvAgg.subscriptionChangeLatency.getValueAtPercentile(50)  / 1000.0;
+                    result.aggregatedsubscriptionChangeLatency75pct = mvAgg.subscriptionChangeLatency.getValueAtPercentile(75)  / 1000.0;
+                    result.aggregatedsubscriptionChangeLatency95pct = mvAgg.subscriptionChangeLatency.getValueAtPercentile(95)  / 1000.0;
+                    result.aggregatedsubscriptionChangeLatency99pct = mvAgg.subscriptionChangeLatency.getValueAtPercentile(99)  / 1000.0;
+                    result.aggregatedsubscriptionChangeLatencyMax = mvAgg.subscriptionChangeLatency.getMaxValue()  / 1000.0;
+
+                } 
                 agg.publishLatency.percentiles(100).forEach(value -> {
                     result.aggregatedPublishLatencyQuantiles.put(value.getPercentile(),
                             value.getValueIteratedTo() / 1000.0);
@@ -495,7 +519,7 @@ public class WorkloadGenerator implements AutoCloseable {
 
                 break;
             }
-
+                
             oldTime = now;
         }
 

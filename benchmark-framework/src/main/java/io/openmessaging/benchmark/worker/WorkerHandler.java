@@ -36,6 +36,7 @@ import io.javalin.Javalin;
 import io.openmessaging.benchmark.worker.commands.ConsumerAssignment;
 import io.openmessaging.benchmark.worker.commands.CumulativeLatencies;
 import io.openmessaging.benchmark.worker.commands.PeriodStats;
+import io.openmessaging.benchmark.worker.commands.MovingPeriodStats;
 import io.openmessaging.benchmark.worker.commands.ProducerWorkAssignment;
 import io.openmessaging.benchmark.worker.commands.TopicsInfo;
 
@@ -126,7 +127,7 @@ public class WorkerHandler {
 
     private void handlePeriodStats(Context ctx) throws Exception {
         PeriodStats stats = localWorker.getPeriodStats();
-
+        log.info("handle periodstats");
         // Serialize histograms
         synchronized (histogramSerializationBuffer) {
             histogramSerializationBuffer.clear();
@@ -140,6 +141,18 @@ public class WorkerHandler {
             stats.endToEndLatencyBytes = new byte[histogramSerializationBuffer.position()];
             histogramSerializationBuffer.flip();
             histogramSerializationBuffer.get(stats.endToEndLatencyBytes);
+            if(stats instanceof MovingPeriodStats){
+                log.info("got moving stats");
+                histogramSerializationBuffer.clear();
+                MovingPeriodStats mStats = (MovingPeriodStats)stats;
+                mStats.subscriptionChangeLatencyBytes = new byte[histogramSerializationBuffer.position()];
+                histogramSerializationBuffer.flip();
+                histogramSerializationBuffer.get(mStats.subscriptionChangeLatencyBytes);
+    
+            }
+            else {
+                log.info("not moving workload");
+            }
         }
 
         ctx.result(writer.writeValueAsString(stats));
@@ -161,6 +174,12 @@ public class WorkerHandler {
             stats.endToEndLatencyBytes = new byte[histogramSerializationBuffer.position()];
             histogramSerializationBuffer.flip();
             histogramSerializationBuffer.get(stats.endToEndLatencyBytes);
+            histogramSerializationBuffer.clear();
+            stats.subscriptionChangeLatencyBytes = new byte[histogramSerializationBuffer.position()];
+            histogramSerializationBuffer.flip();
+            histogramSerializationBuffer.get(stats.subscriptionChangeLatencyBytes);
+    
+
         }
 
         ctx.result(writer.writeValueAsString(stats));
