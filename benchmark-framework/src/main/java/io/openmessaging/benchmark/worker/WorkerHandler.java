@@ -35,6 +35,7 @@ import io.javalin.Context;
 import io.javalin.Javalin;
 import io.openmessaging.benchmark.worker.commands.ConsumerAssignment;
 import io.openmessaging.benchmark.worker.commands.CumulativeLatencies;
+import io.openmessaging.benchmark.worker.commands.MovingCumulativeLatencies;
 import io.openmessaging.benchmark.worker.commands.PeriodStats;
 import io.openmessaging.benchmark.worker.commands.MovingPeriodStats;
 import io.openmessaging.benchmark.worker.commands.ProducerWorkAssignment;
@@ -174,11 +175,15 @@ public class WorkerHandler {
             stats.endToEndLatencyBytes = new byte[histogramSerializationBuffer.position()];
             histogramSerializationBuffer.flip();
             histogramSerializationBuffer.get(stats.endToEndLatencyBytes);
-            histogramSerializationBuffer.clear();
-            stats.subscriptionChangeLatencyBytes = new byte[histogramSerializationBuffer.position()];
-            histogramSerializationBuffer.flip();
-            histogramSerializationBuffer.get(stats.subscriptionChangeLatencyBytes);
     
+            if(stats instanceof MovingCumulativeLatencies){
+                histogramSerializationBuffer.clear();
+                MovingCumulativeLatencies mStats = (MovingCumulativeLatencies)stats;
+                mStats.subscriptionChangeLatencyBytes = new byte[histogramSerializationBuffer.position()];
+                histogramSerializationBuffer.flip();
+                histogramSerializationBuffer.get(mStats.subscriptionChangeLatencyBytes);
+            }
+
 
         }
 
