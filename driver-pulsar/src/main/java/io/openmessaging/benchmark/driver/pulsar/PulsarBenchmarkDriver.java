@@ -72,13 +72,13 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
     private ProducerBuilder<byte[]> producerBuilder;
     
     private HashMap<String, ConsumerBuilder<byte[]>> consumerBuilders;
-    ArrayList<Double> subscriptionChangeTime;
+    private HashMap<String, ArrayList<Double> > subscriptionChangeTimes;
     @Override
     public void initialize(File configurationFile, StatsLogger statsLogger) throws IOException {
         this.config = readConfig(configurationFile);
         log.info("Pulsar driver configuration: {}", writer.writeValueAsString(config));
         consumerBuilders = new HashMap<String, ConsumerBuilder<byte[]>>();
-        subscriptionChangeTime = new ArrayList<Double>(); 
+        subscriptionChangeTimes = new HashMap<String, ArrayList<Double> >(); 
        ClientBuilder clientBuilder = PulsarClient.builder()
                 .ioThreads(config.client.ioThreads)
                 .connectionsPerBroker(config.client.connectionsPerBroker)
@@ -226,11 +226,15 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
 
     @Override
     public synchronized double getSubscriptionChangeTime(BenchmarkConsumer consumer){
-        return subscriptionChangeTime
-                .stream()
-                .mapToDouble(a->a)
-                .average()
-                .orElse(0.0D);
+        PulsarBenchmarkConsumer pConsumer = (PulsarBenchmarkConsumer)consumer;
+        if(subscriptionChangeTimes.containsKey(pConsumer.getSubscription())){
+                return subscriptionChangeTimes.get(pConsumer.getSubscription())
+                    .stream()
+                    .mapToDouble(a->a)
+                    .average()
+                    .orElse(0.0D);
+        }
+        return 0.0;
      }
     @Override
     public CompletableFuture<Void> subscribeConsumerToTopic(BenchmarkConsumer consumer, String topic){
@@ -242,14 +246,19 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
  
                 if(consumerBuilders.containsKey(pConsumer.getSubscription())){
                     log.info("changing topic");   
-                 ConsumerBuilder cb = consumerBuilders.get(pConsumer.getSubscription()).topic(topic);
+                    ConsumerBuilder cb = consumerBuilders.get(pConsumer.getSubscription()).topic(topic);
                     sw.start();
                     pConsumer.unsubscribe();
                     pConsumer.setConsumer(cb.subscribe());
                     sw.stop();
                     consumerBuilders.put(pConsumer.getSubscription(), cb); 
-                log.info("sub change took {}ms", sw.getTime());          
-                subscriptionChangeTime.add((double)sw.getTime());
+                    log.info("sub change took {}ms", sw.getTime());          
+                    if(!subscriptionChangeTimes.containsKey(pConsumer.getSubscription())){
+                        subscriptionChangeTimes.put(pConsumer.getSubscription(), new ArrayList<Double>());
+                    }
+                    ArrayList<Double> consumerSubTimes = subscriptionChangeTimes.get(pConsumer.getSubscription());
+                    consumerSubTimes.add((double)sw.getTime());
+                    subscriptionChangeTimes.put(pConsumer.getSubscription(), consumerSubTimes);
                 
 
                 }
