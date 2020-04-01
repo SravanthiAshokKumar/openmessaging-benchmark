@@ -127,10 +127,8 @@ public class KafkaBenchmarkDriver implements BenchmarkDriver {
         properties.put(ConsumerConfig.GROUP_ID_CONFIG, subscriptionName);
         KafkaConsumer<String, byte[]> consumer = new KafkaConsumer<>(properties);
         try {
-            //consumer.subscribe(Arrays.asList(topic));
-            KafkaBenchmarkConsumer benchmarkConsumer = new KafkaBenchmarkConsumer(consumer, consumerCallback);
-            benchmarkConsumer.setSubscription(topic);
-            benchmarkConsumer.subscribe();
+            consumer.subscribe(Arrays.asList(topic));
+            KafkaBenchmarkConsumer benchmarkConsumer = new KafkaBenchmarkConsumer(consumer, consumerCallback, topic);
             return CompletableFuture.completedFuture(benchmarkConsumer);
         } catch (Throwable t) {
             consumer.close();

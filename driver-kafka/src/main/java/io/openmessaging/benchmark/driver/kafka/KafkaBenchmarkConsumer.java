@@ -57,7 +57,8 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer {
     private volatile boolean closing = false;
 
     private ArrayList<Double> subscriptionChangeTime = new ArrayList<Double>();
-    public KafkaBenchmarkConsumer(KafkaConsumer<String, byte[]> consumer, ConsumerCallback callback) {
+    public KafkaBenchmarkConsumer(KafkaConsumer<String, byte[]> consumer, ConsumerCallback callback, String subscription) {
+        this.subscription = subscription;
         this.consumer = consumer;
         this.executor = Executors.newSingleThreadExecutor();
 
