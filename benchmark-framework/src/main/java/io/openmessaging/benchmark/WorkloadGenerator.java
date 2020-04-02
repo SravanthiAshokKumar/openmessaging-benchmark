@@ -459,11 +459,11 @@ public class WorkloadGenerator implements AutoCloseable {
             if(stats instanceof MovingPeriodStats){
                 MovingPeriodStats mStats = (MovingPeriodStats)stats;
                 result.subscriptionChangeLatencyAvg.add(microsToMillis(mStats.subscriptionChangeLatency.getMean()));
-                result.subscriptionChangeLatency50pct.add(microsToMillis(mStats.endToEndLatency.getValueAtPercentile(50)));
-                result.subscriptionChangeLatency75pct.add(microsToMillis(mStats.endToEndLatency.getValueAtPercentile(75)));
-                result.subscriptionChangeLatency95pct.add(microsToMillis(mStats.endToEndLatency.getValueAtPercentile(95)));
-                result.subscriptionChangeLatency99pct.add(microsToMillis(mStats.endToEndLatency.getValueAtPercentile(99)));
-                result.subscriptionChangeLatencyMax.add(microsToMillis(mStats.endToEndLatency.getMaxValue()));
+                result.subscriptionChangeLatency50pct.add(microsToMillis(mStats.subscriptionChangeLatency.getValueAtPercentile(50)));
+                result.subscriptionChangeLatency75pct.add(microsToMillis(mStats.subscriptionChangeLatency.getValueAtPercentile(75)));
+                result.subscriptionChangeLatency95pct.add(microsToMillis(mStats.subscriptionChangeLatency.getValueAtPercentile(95)));
+                result.subscriptionChangeLatency99pct.add(microsToMillis(mStats.subscriptionChangeLatency.getValueAtPercentile(99)));
+                result.subscriptionChangeLatencyMax.add(microsToMillis(mStats.subscriptionChangeLatency.getMaxValue()));
 
             }
 
@@ -516,7 +516,8 @@ public class WorkloadGenerator implements AutoCloseable {
                     result.aggregatedEndToEndLatencyQuantiles.put(value.getPercentile(),
                             microsToMillis(value.getValueIteratedTo()));
                 });
-
+                
+    
                 break;
             }
                 

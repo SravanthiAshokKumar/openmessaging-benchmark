@@ -121,8 +121,8 @@ public class LocalWorker implements Worker, ConsumerCallback {
     private final OpStatsLogger endToEndLatencyStats;
 
 
-    private final Recorder subscriptionChangeLatencyRecorder = new Recorder(TimeUnit.HOURS.toMicros(12), 5);
-    private final Recorder subscriptionChangeCumulativeLatencyRecorder = new Recorder(TimeUnit.HOURS.toMicros(12), 5);
+    private final Recorder subscriptionChangeLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
+    private final Recorder subscriptionChangeCumulativeLatencyRecorder = new Recorder(TimeUnit.SECONDS.toMicros(60), 5);
 
 
 
@@ -194,7 +194,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
             futures.forEach(CompletableFuture::join);
             for(BenchmarkConsumer consumer: consumers){
                 double curSubTime = benchmarkDriver.getSubscriptionChangeTime(consumer);
-                log.info("cur sub time = {}", curSubTime);
+                log.info("cur sub time = {}", TimeUnit.MILLISECONDS.toMicros((long)curSubTime));
                 subscriptionChangeLatencyRecorder.recordValue(TimeUnit.MILLISECONDS.toMicros((long)curSubTime));
                 subscriptionChangeCumulativeLatencyRecorder.recordValue(TimeUnit.MILLISECONDS.toMicros((long)curSubTime));
  
