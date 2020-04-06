@@ -16,18 +16,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.openmessaging.benchmark.driver.kafka;
+package io.openmessaging.benchmark.worker.commands;
 
-public class Config {
-    public short replicationFactor;
+import java.util.ArrayList;
+import java.util.List;
 
-    public String topicConfig;
-
-    public String commonConfig;
-
-    public String producerConfig;
-
-    public String consumerConfig;
-
-    public String streamConfig;
+public class StreamConsumerAssignment extends ConsumerAssignment {
+    double fanout;
 }

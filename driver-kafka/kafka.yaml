@@ -38,3 +38,7 @@ producerConfig: |
 consumerConfig: |
   auto.offset.reset=earliest
   enable.auto.commit=false
+
+streamConfig: |
+   application.id.config=kafka-stream-benchmark
+   client.id.config=kafka-stream-benchmark-client

@@ -32,7 +32,7 @@
 		<module>benchmark-framework</module>
 		<module>driver-api</module>
 
-		<module>driver-pulsar</module>
+<!--		<module>driver-pulsar</module>-->
 		<module>driver-kafka</module>
 	<!--	<module>driver-rabbitmq</module>
 		<module>driver-artemis</module>
@@ -147,6 +147,10 @@
        <id>com.mycila</id>
        <url>https://mvnrepository.com/artifact/com.mycila/license-maven-plugin</url>
    </repository>
+   <repository>
+    <id>org.apache.kafka</id>
+    <url>https://mvnrepository.com/artifact/org.apache.kafka/kafka-streams</url>
 
+   </repository>
 </repositories>
 </project>

@@ -62,7 +62,7 @@ public class Benchmark {
         public File workersFile;
 
         @Parameter(names = { "-t",
-                "--workload-type" }, description = "Workload type: (static|moving)")
+                "--workload-type" }, description = "Workload type: (static|moving|stream)")
         public String workloadType;
 
 
@@ -125,6 +125,12 @@ public class Benchmark {
                 workloads.put(name, mapper.readValue(file, MovingWorkload.class));
  
             }
+            else if(arguments.workloadType != null && arguments.workloadType.equals("stream")){
+
+                workloads.put(name, mapper.readValue(file, StreamingWorkload.class));
+ 
+            }
+
         }
         log.info("Workloads: {}", writer.writeValueAsString(workloads));
 

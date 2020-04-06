@@ -18,6 +18,7 @@
  */
 package io.openmessaging.benchmark.driver;
 
+import java.util.Map;
 import java.util.List;
 import java.io.File;
 import java.io.IOException;
@@ -76,4 +77,15 @@ public interface BenchmarkDriver extends AutoCloseable {
         ConsumerCallback consumerCallback);
 
     double getSubscriptionChangeTime(BenchmarkConsumer consumer);
+
+
+    /**
+     * Streaming with one input topic to multiple output topics
+     * @param topic
+     * @param topicRouting 
+     * @param transform
+     * @return
+     */
+    CompletableFuture<BenchmarkStream> createStream(String inputTopic, Map<String, StreamPredicate> topicRouting, StreamTransform transform);
+
 }

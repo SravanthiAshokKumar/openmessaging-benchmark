@@ -43,6 +43,11 @@ import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.kafka.common.serialization.Serde;
+import org.apache.kafka.common.serialization.Serdes;
+import org.apache.kafka.streams.KafkaStreams;
+import org.apache.kafka.streams.KeyValue;
+import org.apache.kafka.streams.StreamsConfig;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -52,6 +57,12 @@ import io.openmessaging.benchmark.driver.BenchmarkConsumer;
 import io.openmessaging.benchmark.driver.BenchmarkDriver;
 import io.openmessaging.benchmark.driver.BenchmarkProducer;
 import io.openmessaging.benchmark.driver.ConsumerCallback;
+import io.openmessaging.benchmark.driver.BenchmarkStream;
+import io.openmessaging.benchmark.driver.StreamTransform;
+import io.openmessaging.benchmark.driver.StreamPredicate;
+
+
+
 
 public class KafkaBenchmarkDriver implements BenchmarkDriver {
 
@@ -63,7 +74,8 @@ public class KafkaBenchmarkDriver implements BenchmarkDriver {
     private Properties topicProperties;
     private Properties producerProperties;
     private Properties consumerProperties;
-
+    private Properties streamProperties;
+    
     private AdminClient admin;
 
 
@@ -90,6 +102,13 @@ public class KafkaBenchmarkDriver implements BenchmarkDriver {
         topicProperties = new Properties();
         topicProperties.load(new StringReader(config.topicConfig));
 
+        streamProperties = new Properties();
+        commonProperties.forEach((key, value) -> streamProperties.put(key, value));
+ 
+        streamProperties.load(new StringReader(config.streamConfig));
+        streamProperties.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
+        streamProperties.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass().getName());
+ 
         admin = AdminClient.create(commonProperties);
 
         producer = new KafkaProducer<>(producerProperties);
@@ -171,6 +190,22 @@ public class KafkaBenchmarkDriver implements BenchmarkDriver {
         }
         return 0.0;
     }    
-private static final ObjectMapper mapper = new ObjectMapper(new YAMLFactory())
+
+    @Override
+    public CompletableFuture<BenchmarkStream> createStream(String inputTopic, Map<String, StreamPredicate> topicRouting, StreamTransform transform){
+        Properties properties = new Properties();
+        streamProperties.forEach((key, value) -> properties.put(key, value));
+        try {
+            KafkaBenchmarkStream benchmarkStream = new KafkaBenchmarkStream(properties, inputTopic, topicRouting, transform);
+            return CompletableFuture.completedFuture(benchmarkStream);
+        } catch (Throwable t) {
+            CompletableFuture<BenchmarkStream> future = new CompletableFuture<>();
+            future.completeExceptionally(t);
+            return future;
+        }
+
+    }
+
+    private static final ObjectMapper mapper = new ObjectMapper(new YAMLFactory())
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 }

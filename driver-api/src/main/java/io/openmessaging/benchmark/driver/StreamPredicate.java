@@ -16,18 +16,17 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.openmessaging.benchmark.driver.kafka;
+package io.openmessaging.benchmark.driver;
 
-public class Config {
-    public short replicationFactor;
-
-    public String topicConfig;
-
-    public String commonConfig;
-
-    public String producerConfig;
-
-    public String consumerConfig;
-
-    public String streamConfig;
+/**
+ * Transform function to be applied to stream 
+ */
+public interface StreamPredicate {
+    /**
+     * Driver should invoke this method once for each message received
+     * 
+     * @param payload
+     *            the received message payload
+     */
+    boolean applyPredicate(String payload);
 }
