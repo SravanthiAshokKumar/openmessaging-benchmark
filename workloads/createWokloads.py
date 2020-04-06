@@ -41,7 +41,7 @@ def generateYamlFiles(maxTopics, topicIncrement, maxSubscriptions, consumerIncre
     producersPerTopic = 1
     producerRate = 50000
     testDurationMinutes = 3
-    topicChangeIntervalSeconds = 30
+    topicChangeIntervalSeconds = 9
     
     for topics in range(2, maxTopics+1, topicIncrement):
          for consumers in range(1, maxSubscriptions, consumerIncrement):

@@ -228,11 +228,20 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
     public synchronized double getSubscriptionChangeTime(BenchmarkConsumer consumer){
         PulsarBenchmarkConsumer pConsumer = (PulsarBenchmarkConsumer)consumer;
         if(subscriptionChangeTimes.containsKey(pConsumer.getSubscription())){
-                return subscriptionChangeTimes.get(pConsumer.getSubscription())
+                log.info("avg over {} values " , subscriptionChangeTimes.get(pConsumer.getSubscription()).size());
+                StringBuffer sb = new StringBuffer();
+                for(Double subTime: subscriptionChangeTimes.get(pConsumer.getSubscription())){
+                    sb.append(" ");
+                    sb.append(subTime);
+                }
+                log.info("sub times so far {}", sb);
+                double avg = subscriptionChangeTimes.get(pConsumer.getSubscription())
                     .stream()
                     .mapToDouble(a->a)
                     .average()
                     .orElse(0.0D);
+                log.info("avg sub time = {}", avg);
+                return avg;
         }
         return 0.0;
      }
@@ -242,7 +251,6 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
             try {
                  StopWatch sw = new StopWatch();
                  PulsarBenchmarkConsumer pConsumer = (PulsarBenchmarkConsumer)consumer;
-                log.info("sub = {}, old topic = {}, new topic ={}",pConsumer.getSubscription(), pConsumer.getTopic(), topic);
  
                 if(consumerBuilders.containsKey(pConsumer.getSubscription())){
                     log.info("changing topic");   

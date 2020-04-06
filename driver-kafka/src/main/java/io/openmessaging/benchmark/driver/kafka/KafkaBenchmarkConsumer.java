@@ -97,9 +97,6 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer {
                     ConsumerRecords<String, byte[]> records = consumer.poll(100);
 
                     for (ConsumerRecord<String, byte[]> record : records) {
-                        if( record.topic().equals(subscription) !=true){
-                            log.error("consumer topic = {}, subscribed topic={}", record.topic(), subscription);
-}
 
                         callback.messageReceived(record.value(), record.timestamp());
 
@@ -148,7 +145,6 @@ public class KafkaBenchmarkConsumer implements BenchmarkConsumer {
         return subscription;
     }
     public synchronized void setSubscription(String topic) {
-        log.info("prev= {}, cur= {} " , subscription , topic);
         subscription = topic; 
         isSubscriptionChanged.set(true);
     }
