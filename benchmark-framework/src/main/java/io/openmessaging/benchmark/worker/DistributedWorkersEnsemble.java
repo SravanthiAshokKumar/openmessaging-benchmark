@@ -49,9 +49,12 @@ import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.openmessaging.benchmark.utils.ListPartition;
 import io.openmessaging.benchmark.worker.commands.ConsumerAssignment;
+import io.openmessaging.benchmark.worker.commands.MovingConsumerAssignment;
 import io.openmessaging.benchmark.worker.commands.CountersStats;
 import io.openmessaging.benchmark.worker.commands.CumulativeLatencies;
 import io.openmessaging.benchmark.worker.commands.PeriodStats;
+import io.openmessaging.benchmark.worker.commands.MovingCumulativeLatencies;
+import io.openmessaging.benchmark.worker.commands.MovingPeriodStats;
 import io.openmessaging.benchmark.worker.commands.ProducerWorkAssignment;
 import io.openmessaging.benchmark.worker.commands.TopicSubscription;
 import io.openmessaging.benchmark.worker.commands.TopicsInfo;
@@ -163,7 +166,18 @@ public class DistributedWorkersEnsemble implements Worker {
         for (List<TopicSubscription> tsl : subscriptionsPerConsumer) {
             ConsumerAssignment individualAssignement = new ConsumerAssignment();
             individualAssignement.topicsSubscriptions = tsl;
-            topicsPerWorkerMap.put(consumerWorkers.get(i++), individualAssignement);
+
+            if(overallConsumerAssignment instanceof MovingConsumerAssignment){
+                MovingConsumerAssignment mvConsumerAssignment = new MovingConsumerAssignment();
+                MovingConsumerAssignment overall = (MovingConsumerAssignment)overallConsumerAssignment;
+                mvConsumerAssignment.topicChangeIntervalSeconds = overall.topicChangeIntervalSeconds;
+                mvConsumerAssignment.fractionTopicsChange = overall.fractionTopicsChange;
+                mvConsumerAssignment.topicsSubscriptions = tsl;
+                topicsPerWorkerMap.put(consumerWorkers.get(i++), mvConsumerAssignment);
+            }
+            else{
+                topicsPerWorkerMap.put(consumerWorkers.get(i++), individualAssignement);
+            }
         }
 
         List<CompletableFuture<Void>> futures = topicsPerWorkerMap.keySet().stream().map(consumer -> {
@@ -183,7 +197,7 @@ public class DistributedWorkersEnsemble implements Worker {
     @Override
     public PeriodStats getPeriodStats() {
         List<PeriodStats> individualStats = get(workers, "/period-stats", PeriodStats.class);
-        PeriodStats stats = new PeriodStats();
+        MovingPeriodStats stats = new MovingPeriodStats();
         individualStats.forEach(is -> {
             stats.messagesSent += is.messagesSent;
             stats.bytesSent += is.bytesSent;
@@ -198,6 +212,12 @@ public class DistributedWorkersEnsemble implements Worker {
 
                 stats.endToEndLatency.add(Histogram.decodeFromCompressedByteBuffer(
                         ByteBuffer.wrap(is.endToEndLatencyBytes), TimeUnit.HOURS.toMicros(12)));
+                if( stats instanceof MovingPeriodStats){
+                    MovingPeriodStats mStats = (MovingPeriodStats)is;
+                    stats.subscriptionChangeLatency.add(Histogram.decodeFromCompressedByteBuffer(
+                        ByteBuffer.wrap(mStats.subscriptionChangeLatencyBytes), TimeUnit.SECONDS.toMicros(12)));
+                
+                }
             } catch (ArrayIndexOutOfBoundsException | DataFormatException e) {
                 throw new RuntimeException(e);
             }
@@ -210,7 +230,7 @@ public class DistributedWorkersEnsemble implements Worker {
     public CumulativeLatencies getCumulativeLatencies() {
         List<CumulativeLatencies> individualStats = get(workers, "/cumulative-latencies", CumulativeLatencies.class);
 
-        CumulativeLatencies stats = new CumulativeLatencies();
+        MovingCumulativeLatencies stats = new MovingCumulativeLatencies();
         individualStats.forEach(is -> {
             try {
                 stats.publishLatency.add(Histogram.decodeFromCompressedByteBuffer(
@@ -228,6 +248,18 @@ public class DistributedWorkersEnsemble implements Worker {
                 log.error("Failed to decode end-to-end latency: {}",
                         ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(is.endToEndLatencyBytes)));
                 throw new RuntimeException(e);
+            }
+            if(is instanceof MovingCumulativeLatencies){
+                MovingCumulativeLatencies mcl = (MovingCumulativeLatencies)is;
+                try {
+                    stats.subscriptionChangeLatency.add(Histogram.decodeFromCompressedByteBuffer(
+                        ByteBuffer.wrap(mcl.subscriptionChangeLatencyBytes), TimeUnit.SECONDS.toMicros(12)));
+                } catch (Exception e) {
+                    log.error("Failed to decode end-to-end latency: {}",
+                        ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(mcl.subscriptionChangeLatencyBytes)));
+                    throw new RuntimeException(e);
+                }
+
             }
         });
 
