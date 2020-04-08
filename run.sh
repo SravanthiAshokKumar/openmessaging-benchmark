@@ -2,6 +2,7 @@
 
 directory=$1
 driver=$2
+workloadType=$3
 
 KAFKA_PATH=~/kafka-2.4.0-src
 PULSAR_PATH=~/apache-pulsar-2.5.0
@@ -62,13 +63,14 @@ do
      if [ $driver = "kafka" ]
      then
         restart_kafka
-        run_benchmark "driver-kafka/kafka.yaml" "moving" $entry
+        run_benchmark "driver-kafka/kafka.yaml" $workloadType $entry
      
      elif [ $driver = "pulsar" ]
      then
         restart_pulsar
-        run_benchmark "driver-pulsar/pulsar.yaml" "moving" $entry
+        run_benchmark "driver-pulsar/pulsar.yaml" $workloadType $entry
      fi 
+    break
 done
 
 shutdown_all

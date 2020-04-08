@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.lang.Math;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +39,7 @@ import io.openmessaging.benchmark.utils.payload.FilePayloadReader;
 import io.openmessaging.benchmark.utils.payload.PayloadReader;
 import io.openmessaging.benchmark.worker.Worker;
 import io.openmessaging.benchmark.worker.commands.ConsumerAssignment;
+import io.openmessaging.benchmark.worker.commands.StreamAssignment;
 import io.openmessaging.benchmark.worker.commands.MovingConsumerAssignment;
 import io.openmessaging.benchmark.worker.commands.CountersStats;
 import io.openmessaging.benchmark.worker.commands.CumulativeLatencies;
@@ -71,7 +73,10 @@ public class WorkloadGenerator implements AutoCloseable {
         if(workload instanceof MovingWorkload){
             log.info("got moving workload");
         }
-        else {
+        else if(workload instanceof StreamingWorkload){
+            log.info("got streaming workload");
+        }
+        else{
             log.info("got static workload");
         }
         if (workload.consumerBacklogSizeGB > 0 && workload.producerRate == 0) {
@@ -93,8 +98,23 @@ public class WorkloadGenerator implements AutoCloseable {
         topics = worker.createTopics(new TopicsInfo(workload.topics, workload.partitionsPerTopic));
         
         log.info("Created {} topics in {} ms", topics.size(), timer.elapsedMillis());
-
-        createConsumers(topics);
+        if(workload instanceof StreamingWorkload){
+            StreamingWorkload sw = (StreamingWorkload)workload;
+            StreamAssignment streamAssignment = createStreamAssignment(topics, sw);
+            worker.createStreams(streamAssignment);
+            List<String> outputTopics = new ArrayList<>();
+            for(String topic: streamAssignment.topicMap.keySet()){
+                for(String outputTopic: streamAssignment.topicMap.get(topic)){
+                    outputTopics.add(outputTopic);
+                    log.info("output topic for {} = {}", topic, outputTopic);
+                }
+            }  
+            log.info("Created stream with {} input and {} output topics", topics.size(), outputTopics.size()); 
+            createConsumers(outputTopics);        
+        }
+        else {
+            createConsumers(topics);
+        }
         createProducers(topics);
 
         ensureTopicsAreReady();
@@ -148,6 +168,25 @@ public class WorkloadGenerator implements AutoCloseable {
         return result;
     }
 
+    private List<String> chooseRandomTopics(int numTopics, List<String> topics){
+        Collections.shuffle(topics);
+        log.info("picking {} topics", numTopics);
+        List<String> outputTopics = new ArrayList<String>(topics.subList(0, numTopics));
+        log.info("size of randomtopics = {}", outputTopics.size());
+        return outputTopics;
+    } 
+    private StreamAssignment createStreamAssignment(List<String> topics, StreamingWorkload workload) throws Exception{
+    
+        int numOutputTopics = (int)Math.ceil(topics.size() * workload.fanout);
+        List<String> outputTopics = worker.createTopics(new TopicsInfo(numOutputTopics, workload.partitionsPerTopic));
+        StreamAssignment streamAssignment = new StreamAssignment();
+        for(String topic : topics){
+            log.info("cur topic = {}", topic);
+            streamAssignment.topicMap.put(topic, chooseRandomTopics(Math.max(1, (int)workload.fanout), outputTopics));
+        }
+        return streamAssignment;
+
+    }
     private void ensureTopicsAreReady() throws IOException {
         log.info("Waiting for consumers to be ready");
         // This is work around the fact that there's no way to have a consumer ready in Kafka without first publishing
@@ -316,6 +355,14 @@ public class WorkloadGenerator implements AutoCloseable {
             log.info("created moving consumer with {} seconds topic change interval and {} fraction topic change", mvConsumerAssignment.topicChangeIntervalSeconds, mvConsumerAssignment.fractionTopicsChange);
             return mvConsumerAssignment;
         }
+        /*if(this.workload instanceof StreamingWorkload){
+            StreamingWorkload sWorkload = (StreamingWorkload)workload;
+            StreamConsumerAssignment sConsumerAssignment = new StreamConsumerAssignment();
+            sConsumerAssignment.fanout = mvWorkload.fanout;
+            log.info("created streaming consumer with {} fanout in topics", sConsumerAssignment.fanout);
+            return sConsumerAssignment;
+        }*/
+
 
         return consumerAssignment;
    

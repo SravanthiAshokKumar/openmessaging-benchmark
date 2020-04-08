@@ -55,17 +55,18 @@ def create_charts(test_results):
                      y_label='LatencyAvg msec',
                      time_series=[(x['driver'], x['endToEndLatencyAvg']) for x in results])
 
-        if 'subscriptionChangeLatencyAvg' in x:
+        if 'subscriptionChangeLatencyAvg' in x and len(x['subscriptionChangeLatencyAvg']) >0:
             create_chart(workload, 'subscriptionChangeLatencyAvg',
                          y_label='SubscriptionChangeLatencyAvg msec',
                          time_series=[(x['driver'], x['subscriptionChangeLatencyAvg']) for x in results])
 
-        if 'subscriptionChangeLatency99pct' in x:
+        if 'subscriptionChangeLatency99pct' in x and len(x['subscriptionChangeLatency99pct']) >0:
             create_chart(workload, 'Subscription change latency 99pct',
                      y_label='Latency (ms)',
                      time_series=[(x['driver'], x['subscriptionChangeLatency99pct']) for x in results])
 
-        if 'subscriptionChangeLatencyMax' in x:
+        if 'subscriptionChangeLatencyMax' in x and len(x['subscriptionChangeLatencyMax']) >0:
+
             create_chart(workload, 'Subscription change latency max',
                      y_label='Latency (ms)',
                      time_series=[(x['driver'], x['subscriptionChangeLatency99pct']) for x in results])

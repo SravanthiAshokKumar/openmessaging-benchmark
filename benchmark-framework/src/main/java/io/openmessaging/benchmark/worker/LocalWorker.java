@@ -40,6 +40,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.Collections;
 import java.util.Random;
+import java.util.HashMap;
 
 import org.HdrHistogram.Recorder;
 import org.apache.bookkeeper.stats.Counter;
@@ -65,11 +66,15 @@ import io.openmessaging.benchmark.driver.BenchmarkConsumer;
 import io.openmessaging.benchmark.driver.BenchmarkDriver;
 import io.openmessaging.benchmark.driver.BenchmarkProducer;
 import io.openmessaging.benchmark.driver.ConsumerCallback;
+import io.openmessaging.benchmark.driver.StreamTransform;
+import io.openmessaging.benchmark.driver.StreamPredicate;
+import io.openmessaging.benchmark.driver.BenchmarkStream;
 import io.openmessaging.benchmark.utils.RandomGenerator;
 import io.openmessaging.benchmark.utils.Timer;
 import io.openmessaging.benchmark.utils.distributor.KeyDistributor;
 import io.openmessaging.benchmark.worker.commands.ConsumerAssignment;
 import io.openmessaging.benchmark.worker.commands.MovingConsumerAssignment;
+import io.openmessaging.benchmark.worker.commands.StreamAssignment;
 import io.openmessaging.benchmark.worker.commands.TopicSubscription;
 
 import io.openmessaging.benchmark.worker.commands.CountersStats;
@@ -90,6 +95,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
 
     private List<BenchmarkProducer> producers = new ArrayList<>();
     private List<BenchmarkConsumer> consumers = new ArrayList<>();
+    private List<BenchmarkStream> streams = new ArrayList();
 
     private final RateLimiter rateLimiter = RateLimiter.create(1.0);
 
@@ -294,6 +300,55 @@ public class LocalWorker implements Worker, ConsumerCallback {
                 log.info("error occured in setting up sub change");
             }
         }
+    }
+
+    public class StreamTransformImpl implements StreamTransform{
+        private int maxNum;
+        public StreamTransformImpl(int random){
+            this.maxNum = random;
+        }
+        
+        @Override
+        public String applyTransform(String payload){
+            int rno = new Random().nextInt(maxNum);
+            return rno  + "|" + payload;
+        }
+    }
+    public class StreamPredicateImpl implements StreamPredicate{
+        private int id;
+        public StreamPredicateImpl(int _id){
+            this.id = _id;
+        }
+
+        @Override
+        public boolean applyPredicate(String payload){
+            int idx = payload.indexOf("|");
+            return Integer.parseInt(payload.substring(0, idx )) == id;
+        }
+    }
+    @Override
+    public void createStreams(StreamAssignment streamAssignment){
+        Timer timer = new Timer();
+    
+        ArrayList<CompletableFuture<BenchmarkStream>> futures = new ArrayList<>(); 
+        for(String inputTopic: streamAssignment.topicMap.keySet()){
+            HashMap<String, StreamPredicate> topicRouting = new HashMap<>();
+            int i = 0;
+            StreamTransformImpl transform = new StreamTransformImpl(streamAssignment.topicMap.get(inputTopic).size());
+            for(String outputTopic: streamAssignment.topicMap.get(inputTopic)){
+                topicRouting.put(outputTopic, new StreamPredicateImpl(i));
+                ++i;
+            }
+            futures.add(benchmarkDriver.createStream(inputTopic, topicRouting, transform));
+        }
+        futures.forEach(f -> streams.add(f.join()));
+        for(BenchmarkStream stream : streams){
+            if(stream == null){
+                log.error("NULL STREAM");
+            }
+        }
+        log.info("Created {} streamns in {} ms", streams.size(), timer.elapsedMillis());
+    
     }
 
     @Override
@@ -503,6 +558,9 @@ public class LocalWorker implements Worker, ConsumerCallback {
             }
             producers.clear();
 
+            for( BenchmarkStream stream: streams) {
+                stream.close();
+            }
             for (BenchmarkConsumer consumer : consumers) {
                 consumer.close();
                

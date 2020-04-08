@@ -34,6 +34,7 @@ import com.google.common.io.Files;
 import io.javalin.Context;
 import io.javalin.Javalin;
 import io.openmessaging.benchmark.worker.commands.ConsumerAssignment;
+import io.openmessaging.benchmark.worker.commands.StreamAssignment;
 import io.openmessaging.benchmark.worker.commands.CumulativeLatencies;
 import io.openmessaging.benchmark.worker.commands.MovingCumulativeLatencies;
 import io.openmessaging.benchmark.worker.commands.PeriodStats;
@@ -54,6 +55,7 @@ public class WorkerHandler {
         app.post("/create-producers", this::handleCreateProducers);
         app.post("/probe-producers", this::handleProbeProducers);
         app.post("/create-consumers", this::handleCreateConsumers);
+        app.post("/create-streams", this::handleCreateStreams);
         app.post("/pause-consumers", this::handlePauseConsumers);
         app.post("/resume-consumers", this::handleResumeConsumers);
         app.post("/start-load", this::handleStartLoad);
@@ -98,6 +100,12 @@ public class WorkerHandler {
         localWorker.createConsumers(consumerAssignment);
     }
 
+    private void handleCreateStreams(Context ctx) throws Exception {
+        StreamAssignment streamAssignment = mapper.readValue(ctx.body(), StreamAssignment.class);
+
+        log.info("Received create streams request for topics: {}", streamAssignment.topicMap);
+        localWorker.createStreams(streamAssignment);
+    }
     private void handlePauseConsumers(Context ctx) throws Exception {
         localWorker.pauseConsumers();
     }

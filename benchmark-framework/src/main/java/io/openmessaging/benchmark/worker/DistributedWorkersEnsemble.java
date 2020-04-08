@@ -31,6 +31,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.DataFormatException;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.HdrHistogram.Histogram;
 import org.apache.pulsar.common.util.FutureUtil;
@@ -48,6 +50,7 @@ import com.google.common.collect.Lists;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.openmessaging.benchmark.utils.ListPartition;
+import io.openmessaging.benchmark.worker.commands.StreamAssignment;
 import io.openmessaging.benchmark.worker.commands.ConsumerAssignment;
 import io.openmessaging.benchmark.worker.commands.MovingConsumerAssignment;
 import io.openmessaging.benchmark.worker.commands.CountersStats;
@@ -194,6 +197,36 @@ public class DistributedWorkersEnsemble implements Worker {
         FutureUtil.waitForAll(futures).join();
     }
 
+    @Override
+    public void createStreams(StreamAssignment overallStreamAssignment) {
+        List<String> inputTopics = new ArrayList<>(overallStreamAssignment.topicMap.keySet());
+        List<List<String>> streamsPerProducer = ListPartition.partitionList(
+                                                                        inputTopics,
+                                                                        producerWorkers.size());
+        Map<String, StreamAssignment> streamsPerWorkerMap = Maps.newHashMap();
+        int i = 0;
+        for (List<String> topics : streamsPerProducer) {
+            StreamAssignment individualAssignment = new StreamAssignment();
+            individualAssignment.topicMap = new HashMap<>();
+            for(String topic : topics){
+                individualAssignment.topicMap.put(topic, overallStreamAssignment.topicMap.get(topic)); 
+            }
+            streamsPerWorkerMap.put(producerWorkers.get(i++), individualAssignment);
+        }
+
+        List<CompletableFuture<Void>> futures = streamsPerWorkerMap.keySet().stream().map(producer -> {
+            try {
+                return sendPost(producer, "/create-stream",
+                        writer.writeValueAsBytes(streamsPerWorkerMap.get(producer)));
+            } catch (Exception e) {
+                CompletableFuture<Void> future = new CompletableFuture<>();
+                future.completeExceptionally(e);
+                return future;
+            }
+        }).collect(toList());
+
+        FutureUtil.waitForAll(futures).join();
+    }
     @Override
     public PeriodStats getPeriodStats() {
         List<PeriodStats> individualStats = get(workers, "/period-stats", PeriodStats.class);

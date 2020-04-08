@@ -195,8 +195,12 @@ public class KafkaBenchmarkDriver implements BenchmarkDriver {
     public CompletableFuture<BenchmarkStream> createStream(String inputTopic, Map<String, StreamPredicate> topicRouting, StreamTransform transform){
         Properties properties = new Properties();
         streamProperties.forEach((key, value) -> properties.put(key, value));
+        String clientid = (String)streamProperties.get(StreamsConfig.APPLICATION_ID_CONFIG);
+        streamProperties.put(StreamsConfig.APPLICATION_ID_CONFIG, clientid + "_" + inputTopic); 
         try {
             KafkaBenchmarkStream benchmarkStream = new KafkaBenchmarkStream(properties, inputTopic, topicRouting, transform);
+            if(benchmarkStream != null){
+            }
             return CompletableFuture.completedFuture(benchmarkStream);
         } catch (Throwable t) {
             CompletableFuture<BenchmarkStream> future = new CompletableFuture<>();

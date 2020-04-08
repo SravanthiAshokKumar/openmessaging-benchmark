@@ -18,9 +18,18 @@
  */
 package io.openmessaging.benchmark.worker.commands;
 
-import java.util.ArrayList;
+import java.util.Map;
 import java.util.List;
+import java.util.HashMap;
 
-public class StreamConsumerAssignment extends ConsumerAssignment {
-    double fanout;
+public class StreamAssignment {
+    public Map<String, List<String>> topicMap;
+
+    public StreamAssignment() {
+        this.topicMap = new HashMap<>();
+    }
+
+    public StreamAssignment(Map<String, List<String>> _topicMap){
+        this.topicMap = _topicMap;
+    }
 }

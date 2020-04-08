@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
+import io.openmessaging.benchmark.worker.commands.StreamAssignment;
 import io.openmessaging.benchmark.worker.commands.ConsumerAssignment;
 import io.openmessaging.benchmark.worker.commands.CountersStats;
 import io.openmessaging.benchmark.worker.commands.CumulativeLatencies;
@@ -39,7 +40,7 @@ public interface Worker extends AutoCloseable {
 
     void createConsumers(ConsumerAssignment consumerAssignment) throws IOException;
 
-    //void createStreams(ConsumerAssignment consumerAssignment) throws IOException;
+    void createStreams(StreamAssignment streamAssignment) throws IOException;
 
     void changeConsumerSubscriptions(ConsumerAssignment consumerAssignment) throws IOException;
 

@@ -40,5 +40,5 @@ consumerConfig: |
   enable.auto.commit=false
 
 streamConfig: |
-   application.id.config=kafka-stream-benchmark
-   client.id.config=kafka-stream-benchmark-client
+   application.id=kafka-stream-benchmark
+   client.id=kafka-stream-benchmark-client

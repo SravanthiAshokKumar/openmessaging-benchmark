@@ -27,6 +27,7 @@ public class KafkaBenchmarkStream implements BenchmarkStream {
     
     private KafkaStreams streams;
     public KafkaBenchmarkStream(Properties streamConf, String inputTopic, Map<String, StreamPredicate> topicRouting, StreamTransform transform){
+        log.info("input topic {}", inputTopic);
         final Serde<String> stringSerde = Serdes.String();
         final Serde<byte[]> byteArraySerde = Serdes.ByteArray();
 
@@ -37,9 +38,9 @@ public class KafkaBenchmarkStream implements BenchmarkStream {
         final KStream<byte[], String> transformedStream = inputStream.map((key, value) -> new KeyValue<>(key, transform.applyTransform(value)));
        
         for(String topic: topicRouting.keySet()){
-            transformedStream.filter((key, value)-> topicRouting.get(topic).applyPredicate(value)).to(topic);
+            transformedStream.filter((key, value)-> topicRouting.get(topic).applyPredicate(value)).to(topic, Produced.with(byteArraySerde, stringSerde));
         } 
-        KafkaStreams streams = new KafkaStreams(builder.build(), streamConf);
+        streams = new KafkaStreams(builder.build(), streamConf);
         streams.cleanUp();
         streams.start();
     }
