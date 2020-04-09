@@ -228,19 +228,16 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
     public synchronized double getSubscriptionChangeTime(BenchmarkConsumer consumer){
         PulsarBenchmarkConsumer pConsumer = (PulsarBenchmarkConsumer)consumer;
         if(subscriptionChangeTimes.containsKey(pConsumer.getSubscription())){
-                log.info("avg over {} values " , subscriptionChangeTimes.get(pConsumer.getSubscription()).size());
                 StringBuffer sb = new StringBuffer();
                 for(Double subTime: subscriptionChangeTimes.get(pConsumer.getSubscription())){
                     sb.append(" ");
                     sb.append(subTime);
                 }
-                log.info("sub times so far {}", sb);
                 double avg = subscriptionChangeTimes.get(pConsumer.getSubscription())
                     .stream()
                     .mapToDouble(a->a)
                     .average()
                     .orElse(0.0D);
-                log.info("avg sub time = {}", avg);
                 return avg;
         }
         return 0.0;
@@ -253,14 +250,12 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
                  PulsarBenchmarkConsumer pConsumer = (PulsarBenchmarkConsumer)consumer;
  
                 if(consumerBuilders.containsKey(pConsumer.getSubscription())){
-                    log.info("changing topic");   
                     ConsumerBuilder cb = consumerBuilders.get(pConsumer.getSubscription()).topic(topic);
                     sw.start();
                     pConsumer.unsubscribe();
                     pConsumer.setConsumer(cb.subscribe());
                     sw.stop();
                     consumerBuilders.put(pConsumer.getSubscription(), cb); 
-                    log.info("sub change took {}ms", sw.getTime());          
                     if(!subscriptionChangeTimes.containsKey(pConsumer.getSubscription())){
                         subscriptionChangeTimes.put(pConsumer.getSubscription(), new ArrayList<Double>());
                     }

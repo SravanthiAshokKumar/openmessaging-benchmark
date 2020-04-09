@@ -69,6 +69,7 @@ do
         restart_pulsar
         run_benchmark "driver-pulsar/pulsar.yaml" "moving" $entry
      fi 
+    break
 done
 
 shutdown_all

@@ -59,4 +59,4 @@ def generateYamlFiles(maxTopics, topicIncrement, maxSubscriptions, consumerIncre
              writeYaml(conf , 'testWorkloads/' + str(topics) + '-topics-' + str(consumers) + '-subscriptions.yaml')
 
 if __name__ == '__main__':
-    generateYamlFiles( 10, 2, 5, 1, 0.2)
+    generateYamlFiles( 10, 2, 5, 1, 1)
