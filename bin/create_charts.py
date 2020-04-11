@@ -55,20 +55,17 @@ def create_charts(test_results):
                      y_label='LatencyAvg msec',
                      time_series=[(x['driver'], x['endToEndLatencyAvg']) for x in results])
 
-        if 'subscriptionChangeLatencyAvg' in x:
-            create_chart(workload, 'subscriptionChangeLatencyAvg',
+        create_chart(workload, 'subscriptionChangeLatencyAvg',
                          y_label='SubscriptionChangeLatencyAvg msec',
-                         time_series=[(x['driver'], x['subscriptionChangeLatencyAvg']) for x in results])
+                         time_series=[(x['driver'], x['subscriptionChangeLatencyAvg']) for x in results if len(x['subscriptionChangeLatencyAvg']) > 0])
 
-        if 'subscriptionChangeLatency99pct' in x:
-            create_chart(workload, 'Subscription change latency 99pct',
+        create_chart(workload, 'Subscription change latency 99pct',
                      y_label='Latency (ms)',
-                     time_series=[(x['driver'], x['subscriptionChangeLatency99pct']) for x in results])
+                     time_series=[(x['driver'], x['subscriptionChangeLatency99pct']) for x in results if len(x['subscriptionChangeLatency99pct']) > 0])
 
-        if 'subscriptionChangeLatencyMax' in x:
-            create_chart(workload, 'Subscription change latency max',
+        create_chart(workload, 'Subscription change latency max',
                      y_label='Latency (ms)',
-                     time_series=[(x['driver'], x['subscriptionChangeLatency99pct']) for x in results])
+                     time_series=[(x['driver'], x['subscriptionChangeLatency99pct']) for x in results if len(x['subscriptionChangeLatencyMax']) > 0])
 
 
         create_quantile_chart(workload, 'Publish latency quantiles',
@@ -90,7 +87,7 @@ def create_chart(workload, title, y_label, time_series):
         chart.add(label, [(10*x, y) for x, y in enumerate(values)])
 
     chart.range = (0, max(chain(* [l for (x, l) in time_series])) * 1.20)
-    chart.render_to_file('%s - %s.svg' % (workload, title))
+    chart.render_to_png('%s - %s.png' % (workload, title))
 
 
 def create_quantile_chart(workload, title, y_label, time_series):
