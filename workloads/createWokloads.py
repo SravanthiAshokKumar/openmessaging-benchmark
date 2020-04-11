@@ -39,7 +39,7 @@ def generateYamlFiles(maxTopics, topicIncrement, maxSubscriptions, consumerIncre
     payloadFile = "payload/payload-1Kb.data"
     consumersPerSubscription = 1
     producersPerTopic = 1
-    producerRate = 50000
+    producerRate = 10000
     testDurationMinutes = 3
     topicChangeIntervalSeconds = 9
     
