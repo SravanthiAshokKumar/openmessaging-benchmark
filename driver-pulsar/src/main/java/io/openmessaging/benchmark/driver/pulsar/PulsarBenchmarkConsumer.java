@@ -22,30 +22,67 @@ import org.apache.pulsar.client.api.Consumer;
 
 import io.openmessaging.benchmark.driver.BenchmarkConsumer;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class PulsarBenchmarkConsumer implements BenchmarkConsumer {
 
     private Consumer<byte[]> consumer;
-
+    private Consumer<byte[]> expiredConsumer;
+    private AtomicBoolean isUnsubscribing = new AtomicBoolean();
+    private ExecutorService executor;
+    private ReentrantLock lock = new ReentrantLock();
+    
     public PulsarBenchmarkConsumer(Consumer<byte[]> consumer) {
         this.consumer = consumer;
+        isUnsubscribing.set(false);
+        executor = Executors.newSingleThreadExecutor();
     }
 
     public void setConsumer(Consumer<byte[]> consumer) {
+       /* try{
+            lock.lock();
+            this.consumer = consumer;
+        } finally{
+            lock.unlock();
+        }*/
         this.consumer = consumer;
     }
     @Override
     public void close() throws Exception {
+        //executor.shutdown();
         consumer.close();
     }
 
     public String getSubscription() {
         return consumer.getSubscription();
     }
-    public void unsubscribe() throws Exception {
-        consumer.unsubscribe();
-    } 
     
+    /*public class UnsubscribeTask implements Runnable{
+        public void run()  {
+            try{
+                lock.lock();
+                expiredConsumer = consumer;
+            }
+            finally{
+                lock.unlock();
+            }
+            try {
+                expiredConsumer.unsubscribe();
+                expiredConsumer.close();
+            } catch(Exception ex){
+                
+            }
+        } 
+    }*/
+    
+    public void unsubscribe() {
+       // UnsubscribeTask task = new UnsubscribeTask();
+       // executor.execute(task);
+        consumer.unsubscribeAsync();
+    }
     public String getTopic(){
         return consumer.getTopic();
     }    
