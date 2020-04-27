@@ -4,5 +4,6 @@ To test these changes, use a YAML file which specifies `fractionTopicsChange` an
 The workload/ directory has a createWorkload.py script which can automatically generate workloads to test subscription changes.  
 To run the benchmark for subscription changes use  
 ```shell 
-$ bash run.py path/to/workload/dir (kafka|pulsar) 
+$ bash run.sh path/to/workload/dir (kafka|pulsar) 
 ```
+The results are generated in the same json format, with additional information about subscription changes.
