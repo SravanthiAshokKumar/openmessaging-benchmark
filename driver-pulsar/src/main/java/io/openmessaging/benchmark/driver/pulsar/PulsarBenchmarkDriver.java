@@ -61,6 +61,9 @@ import io.openmessaging.benchmark.driver.BenchmarkProducer;
 import io.openmessaging.benchmark.driver.ConsumerCallback;
 import io.openmessaging.benchmark.driver.pulsar.config.PulsarClientConfig.PersistenceConfiguration;
 import io.openmessaging.benchmark.driver.pulsar.config.PulsarConfig;
+
+import java.util.concurrent.atomic.AtomicBoolean;
+
 public class PulsarBenchmarkDriver implements BenchmarkDriver {
 
     private PulsarClient client;
@@ -71,6 +74,7 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
     private String namespace;
     private ProducerBuilder<byte[]> producerBuilder;
  
+    private AtomicBoolean isConnected = new AtomicBoolean();
       
     private ConcurrentHashMap<String, ConsumerBuilder<byte[]>> consumerBuilders;
     private ConcurrentHashMap<String, ArrayList<Double> > subscriptionChangeTimes;
@@ -79,6 +83,7 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
     @Override
     public void initialize(File configurationFile, StatsLogger statsLogger) throws IOException {
         this.config = readConfig(configurationFile);
+        
         log.info("Pulsar driver configuration: {}", writer.writeValueAsString(config));
         consumerBuilders = new ConcurrentHashMap<String, ConsumerBuilder<byte[]>>();
         subscriptionChangeTimes = new ConcurrentHashMap<String, ArrayList<Double> >(); 
@@ -110,7 +115,7 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
         }
 
         client = clientBuilder.build();
-
+        
         log.info("Created Pulsar client for service URL {}", config.client.serviceUrl);
 
         adminClient = pulsarAdminBuilder.build();
@@ -153,6 +158,7 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
         } catch (PulsarAdminException e) {
             throw new IOException(e);
         }
+        isConnected.set(true);
     }
 
     @Override
@@ -201,6 +207,7 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
 
         if (client != null) {
             client.close();
+            isConnected.set(false);
         }
 
         if (adminClient != null) {
@@ -248,7 +255,11 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
      }
     @Override
     public CompletableFuture<Void> subscribeConsumerToTopic(BenchmarkConsumer consumer, String topic){
+        
         return CompletableFuture.runAsync(()->{
+            if(!isConnected.get()){
+                return;
+            }
             try {
                  StopWatch sw = new StopWatch();
                  PulsarBenchmarkConsumer pConsumer = (PulsarBenchmarkConsumer)consumer;
