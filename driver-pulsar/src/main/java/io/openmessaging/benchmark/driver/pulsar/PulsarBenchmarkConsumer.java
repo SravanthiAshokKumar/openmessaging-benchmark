@@ -32,13 +32,13 @@ public class PulsarBenchmarkConsumer implements BenchmarkConsumer {
     private Consumer<byte[]> consumer;
     private Consumer<byte[]> expiredConsumer;
     private AtomicBoolean isUnsubscribing = new AtomicBoolean();
-    private ExecutorService executor;
+    //private ExecutorService executor;
     private ReentrantLock lock = new ReentrantLock();
     
     public PulsarBenchmarkConsumer(Consumer<byte[]> consumer) {
         this.consumer = consumer;
         isUnsubscribing.set(false);
-        executor = Executors.newSingleThreadExecutor();
+       // executor = Executors.newSingleThreadExecutor();
     }
 
     public void setConsumer(Consumer<byte[]> consumer) {

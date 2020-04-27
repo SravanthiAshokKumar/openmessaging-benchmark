@@ -67,7 +67,7 @@ do
      elif [ $driver = "pulsar" ]
      then
         restart_pulsar
-        run_benchmark "driver-pulsar/pulsar.yaml" "moving" $entry
+        run_benchmark "driver-pulsar/pulsar.yaml" "static" $entry
      fi 
 done
 
