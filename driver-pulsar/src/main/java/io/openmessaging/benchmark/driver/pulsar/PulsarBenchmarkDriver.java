@@ -25,7 +25,7 @@ import java.util.Collections;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.ArrayList;
 
 import org.apache.bookkeeper.stats.StatsLogger;
@@ -70,15 +70,18 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
 
     private String namespace;
     private ProducerBuilder<byte[]> producerBuilder;
-    
-    private HashMap<String, ConsumerBuilder<byte[]>> consumerBuilders;
-    private HashMap<String, ArrayList<Double> > subscriptionChangeTimes;
+ 
+      
+    private ConcurrentHashMap<String, ConsumerBuilder<byte[]>> consumerBuilders;
+    private ConcurrentHashMap<String, ArrayList<Double> > subscriptionChangeTimes;
+    private ConsumerCallback callback;
+
     @Override
     public void initialize(File configurationFile, StatsLogger statsLogger) throws IOException {
         this.config = readConfig(configurationFile);
         log.info("Pulsar driver configuration: {}", writer.writeValueAsString(config));
-        consumerBuilders = new HashMap<String, ConsumerBuilder<byte[]>>();
-        subscriptionChangeTimes = new HashMap<String, ArrayList<Double> >(); 
+        consumerBuilders = new ConcurrentHashMap<String, ConsumerBuilder<byte[]>>();
+        subscriptionChangeTimes = new ConcurrentHashMap<String, ArrayList<Double> >(); 
        ClientBuilder clientBuilder = PulsarClient.builder()
                 .ioThreads(config.client.ioThreads)
                 .connectionsPerBroker(config.client.connectionsPerBroker)
@@ -176,6 +179,7 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
     @Override
     public CompletableFuture<BenchmarkConsumer> createConsumer(String topic, String subscriptionName,
                     ConsumerCallback consumerCallback) {
+        callback = consumerCallback;
         ConsumerBuilder<byte[]> cb = client.newConsumer().subscriptionType(SubscriptionType.Failover).messageListener((consumer, msg) -> {
             consumerCallback.messageReceived(msg.getData(), msg.getPublishTime());
             consumer.acknowledgeAsync(msg);
@@ -250,13 +254,12 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
                  PulsarBenchmarkConsumer pConsumer = (PulsarBenchmarkConsumer)consumer;
  
                 if(consumerBuilders.containsKey(pConsumer.getSubscription())){
-                    ConsumerBuilder cb = consumerBuilders.get(pConsumer.getSubscription()).topic(topic);
                     sw.start();
                     pConsumer.unsubscribe();
-                    pConsumer.setConsumer(cb.subscribe());
+                    String subscription = pConsumer.getSubscription();
+                    pConsumer = (PulsarBenchmarkConsumer)createConsumer(topic, subscription, callback).get();
                     sw.stop();
-                    consumerBuilders.put(pConsumer.getSubscription(), cb); 
-                    if(!subscriptionChangeTimes.containsKey(pConsumer.getSubscription())){
+                     if(!subscriptionChangeTimes.containsKey(pConsumer.getSubscription())){
                         subscriptionChangeTimes.put(pConsumer.getSubscription(), new ArrayList<Double>());
                     }
                     ArrayList<Double> consumerSubTimes = subscriptionChangeTimes.get(pConsumer.getSubscription());
