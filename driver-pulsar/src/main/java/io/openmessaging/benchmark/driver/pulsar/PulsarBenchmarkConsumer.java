@@ -36,7 +36,7 @@ public class PulsarBenchmarkConsumer implements BenchmarkConsumer {
     }
     @Override
     public void close() throws Exception {
-        consumer.close();
+        consumer.closeAsync();
     }
 
     public String getSubscription() {
