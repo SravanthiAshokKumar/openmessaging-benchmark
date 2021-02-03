@@ -35,7 +35,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.Collections;
@@ -258,6 +257,10 @@ public class LocalWorker implements Worker, ConsumerCallback {
         log.info("Created {} topics in {} ms", topics.size(), timer.elapsedMillis());
        
         return topics;
+    }
+
+    @Override
+    public void createProducers(String topic, String producerID, byte[] payloadData) {
     }
 
     @Override

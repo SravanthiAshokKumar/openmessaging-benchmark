@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.apache.pulsar.client.admin.PulsarAdmin;
@@ -202,6 +203,27 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
     }
 
     @Override
+    public CompletableFuture<BenchmarkConsumer> createMultiTopicConsumer(
+                    List<String> topic, String subscriptionName,
+                    ConsumerCallback consumerCallback) {
+        callback = consumerCallback;
+        ConsumerBuilder<byte[]> cb = client.newConsumer()
+            .subscriptionType(SubscriptionType.Failover)
+            .messageListener((consumer, msg) -> {
+                log.info("size of the message received SRAV : {}", msg);
+                consumerCallback.messageReceived(msg.getData(), msg.getPublishTime());
+                consumer.acknowledgeAsync(msg);
+            });
+        cb.topics(topic).subscriptionName(subscriptionName);
+        consumerBuilders.put(subscriptionName, cb);
+        
+        for(String key: consumerBuilders.keySet()){
+            log.info("Added {}", key);
+        }
+        return cb.subscribeAsync().thenApply(consumer -> new PulsarBenchmarkConsumer(consumer));
+    }
+
+    @Override
     public void close() throws Exception {
         log.info("Shutting down Pulsar benchmark driver");
 
@@ -239,49 +261,54 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
     public synchronized double getSubscriptionChangeTime(BenchmarkConsumer consumer){
         PulsarBenchmarkConsumer pConsumer = (PulsarBenchmarkConsumer)consumer;
         if(subscriptionChangeTimes.containsKey(pConsumer.getSubscription())){
-                StringBuffer sb = new StringBuffer();
-                for(Double subTime: subscriptionChangeTimes.get(pConsumer.getSubscription())){
-                    sb.append(" ");
-                    sb.append(subTime);
-                }
-                double avg = subscriptionChangeTimes.get(pConsumer.getSubscription())
-                    .stream()
-                    .mapToDouble(a->a)
-                    .average()
-                    .orElse(0.0D);
-                return avg;
+            StringBuffer sb = new StringBuffer();
+            for(Double subTime: subscriptionChangeTimes.get(pConsumer.getSubscription())){
+                sb.append(" ");
+                sb.append(subTime);
+            }
+            double avg = subscriptionChangeTimes.get(pConsumer.getSubscription())
+                .stream()
+                .mapToDouble(a->a)
+                .average()
+                .orElse(0.0D);
+            return avg;
         }
         return 0.0;
-     }
+    }
+    
     @Override
-    public CompletableFuture<Void> subscribeConsumerToTopic(BenchmarkConsumer consumer, String topic){
+    public CompletableFuture<Void> subscribeConsumerToTopic(BenchmarkConsumer consumer,
+                                                            String topic){
         
         return CompletableFuture.runAsync(()->{
             if(!isConnected.get()){
                 return;
             }
             try {
-                 StopWatch sw = new StopWatch();
-                 PulsarBenchmarkConsumer pConsumer = (PulsarBenchmarkConsumer)consumer;
+                StopWatch sw = new StopWatch();
+                PulsarBenchmarkConsumer pConsumer = (PulsarBenchmarkConsumer)consumer;
  
                 if(consumerBuilders.containsKey(pConsumer.getSubscription())){
                     sw.start();
-                    pConsumer.unsubscribe();
                     String subscription = pConsumer.getSubscription();
-                    pConsumer = (PulsarBenchmarkConsumer)createConsumer(topic, subscription, callback).get();
+                    PulsarBenchmarkConsumer newConsumer = (PulsarBenchmarkConsumer)
+                        createConsumer(topic, subscription, callback).get();
                     sw.stop();
-                     if(!subscriptionChangeTimes.containsKey(pConsumer.getSubscription())){
-                        subscriptionChangeTimes.put(pConsumer.getSubscription(), new ArrayList<Double>());
+                    pConsumer.unsubscribe();
+                    if(!subscriptionChangeTimes.containsKey(newConsumer.getSubscription())){
+                        subscriptionChangeTimes.put(newConsumer.getSubscription(),
+                            new ArrayList<Double>());
                     }
-                    ArrayList<Double> consumerSubTimes = subscriptionChangeTimes.get(pConsumer.getSubscription());
+                    ArrayList<Double> consumerSubTimes = subscriptionChangeTimes.get(
+                        newConsumer.getSubscription());
                     consumerSubTimes.add((double)sw.getTime());
-                    subscriptionChangeTimes.put(pConsumer.getSubscription(), consumerSubTimes);
-                
-
+                    subscriptionChangeTimes.put(newConsumer.getSubscription(),
+                        consumerSubTimes);
                 }
             
             } catch(Exception e){
                 log.error("Could not change topic " + e.getMessage()); 
-            }});
+            }
+        });
     }
 }

@@ -58,7 +58,8 @@ public interface BenchmarkDriver extends AutoCloseable {
      */
     CompletableFuture<BenchmarkProducer> createProducer(String topic);
     
-    CompletableFuture<Void> subscribeConsumerToTopic( BenchmarkConsumer consumer, String topic);
+    CompletableFuture<Void> subscribeConsumerToTopic(BenchmarkConsumer consumer, String topic);
+
     /**
      * Create a benchmark consumer relative to one particular topic and subscription.
      * 
@@ -72,6 +73,24 @@ public interface BenchmarkDriver extends AutoCloseable {
      */
     CompletableFuture<BenchmarkConsumer> createConsumer(
         String topic,
+        String subscriptionName,
+        ConsumerCallback consumerCallback);
+
+    /**
+     * Create a benchmark multitopic consumer to subscribe to multiple 
+     * topics under same subscription
+     * 
+     * It is responsibility of the driver implementation to invoke the 
+     * <code>consumerCallback</code> each time a message
+     * is received.
+     * 
+     * @param topic
+     * @param subscriptionName
+     * @param consumerCallback
+     * @return
+     */
+    CompletableFuture<BenchmarkConsumer> createMultiTopicConsumer(
+        List<String> topic,
         String subscriptionName,
         ConsumerCallback consumerCallback);
 

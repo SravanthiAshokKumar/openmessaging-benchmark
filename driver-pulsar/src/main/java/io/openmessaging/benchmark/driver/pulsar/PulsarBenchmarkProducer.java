@@ -36,7 +36,7 @@ public class PulsarBenchmarkProducer implements BenchmarkProducer {
 
     @Override
     public void close() throws Exception {
-        producer.close();
+        producer.closeAsync();
     }
 
     @Override

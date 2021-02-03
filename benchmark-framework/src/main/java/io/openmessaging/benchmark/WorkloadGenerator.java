@@ -49,7 +49,7 @@ import io.openmessaging.benchmark.worker.commands.ProducerWorkAssignment;
 import io.openmessaging.benchmark.worker.commands.TopicSubscription;
 import io.openmessaging.benchmark.worker.commands.TopicsInfo;
 
-public class WorkloadGenerator implements AutoCloseable {
+public class WorkloadGenerator implements WorkloadGeneratorInterface {
 
     private final String driverName;
     private final Workload workload;
