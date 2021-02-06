@@ -122,7 +122,6 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                 for (int i = 0; i < value.size(); i++) {
                     Triplet<String, Double, Double> tuple = value.get(i);
                     String clientID = tuple.getValue0();
-                    log.info("******************** clientID: {} *****************", clientID);
                     
                     // get topics based on the location
                     List<String> consumerTopics = index.getNearestNeighbors(tuple.getValue1(),
@@ -245,7 +244,6 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
             } catch (InterruptedException e) {
                 break;
             }
-            log.info("In while");
             PeriodStats stats = worker.getPeriodStats();
 
             long now = System.nanoTime();
@@ -271,6 +269,8 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                     dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(99.9))),
                     throughputFormat.format(microsToMillis(stats.publishLatency.getMaxValue())));
 
+            result.messagesSent = stats.messagesSent;
+            result.messagesReceived = stats.messagesReceived;
             result.publishRate.add(publishRate);
             result.consumeRate.add(consumeRate);
             result.backlog.add(currentBacklog);
@@ -300,7 +300,6 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
             result.subscriptionChangeLatencyMax.add(microsToMillis(stats.subscriptionChangeLatency.getMaxValue()));
 
             if (now >= testEndTime && !needToWaitForBacklogDraining) {
-                log.info("In if ---- gonna break");
                 CumulativeLatencies agg = worker.getCumulativeLatencies();
                 log.info(
                         "----- Aggregated Pub Latency (ms) avg: {} - 50%: {} - 95%: {} - 99%: {} - 99.9%: {} - 99.99%: {} - Max: {}",

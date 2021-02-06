@@ -65,6 +65,9 @@ public class TestResult {
 
     public Map<Double, Double> aggregatedEndToEndLatencyQuantiles = new TreeMap<>();
 
+    public double messagesSent;
+    public double messagesReceived;
+
     public double aggregatedEndToEndLatencyAvg;
     public double aggregatedEndToEndLatency50pct;
     public double aggregatedEndToEndLatency75pct;

@@ -49,4 +49,7 @@ public class PulsarBenchmarkProducer implements BenchmarkProducer {
         return msgBuilder.sendAsync().thenApply(msgId -> null);
     }
 
+    public String getTopic() {
+        return this.producer.getTopic();
+    }
 }

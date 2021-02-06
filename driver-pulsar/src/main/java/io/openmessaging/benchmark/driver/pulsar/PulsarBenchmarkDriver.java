@@ -203,27 +203,6 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
     }
 
     @Override
-    public CompletableFuture<BenchmarkConsumer> createMultiTopicConsumer(
-                    List<String> topic, String subscriptionName,
-                    ConsumerCallback consumerCallback) {
-        callback = consumerCallback;
-        ConsumerBuilder<byte[]> cb = client.newConsumer()
-            .subscriptionType(SubscriptionType.Failover)
-            .messageListener((consumer, msg) -> {
-                log.info("size of the message received SRAV : {}", msg);
-                consumerCallback.messageReceived(msg.getData(), msg.getPublishTime());
-                consumer.acknowledgeAsync(msg);
-            });
-        cb.topics(topic).subscriptionName(subscriptionName);
-        consumerBuilders.put(subscriptionName, cb);
-        
-        for(String key: consumerBuilders.keySet()){
-            log.info("Added {}", key);
-        }
-        return cb.subscribeAsync().thenApply(consumer -> new PulsarBenchmarkConsumer(consumer));
-    }
-
-    @Override
     public void close() throws Exception {
         log.info("Shutting down Pulsar benchmark driver");
 
