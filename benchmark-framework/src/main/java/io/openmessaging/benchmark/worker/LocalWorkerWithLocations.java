@@ -56,13 +56,15 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
     
     private BenchmarkDriver benchmarkDriver = null;
 
+    // producer map contains the mapping of ProducerID to pairOf (ProducerTask executor, Producer)
     private Map<String, Pair<ScheduledExecutorService, BenchmarkProducer>> producers =
         new ConcurrentHashMap<String, Pair<ScheduledExecutorService, BenchmarkProducer>>();
+    // consumer map contains the mapping of SubscriptionName to a map containing
+    // TopicName to Consumer mapping
     private Map<String, HashMap<String, BenchmarkConsumer>> consumers = 
         new ConcurrentHashMap<String, HashMap<String, BenchmarkConsumer>>();
 
     // defining stats
-
     private final StatsLogger statsLogger;
 
     private final LongAdder messagesSent = new LongAdder();

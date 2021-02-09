@@ -118,6 +118,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                 timeToTuple.entrySet().iterator();
             Double keyToRemove = null;
             while (it.hasNext()) {
+                // The triple consists of the ClientID, latitude and longitude of the vehicle
                 List<Triplet<String, Double, Double>> value = it.next().getValue();
                 for (int i = 0; i < value.size(); i++) {
                     Triplet<String, Double, Double> tuple = value.get(i);
