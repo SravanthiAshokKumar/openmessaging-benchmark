@@ -46,7 +46,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
     private final String locations;
 
     private Map<Double, List<Triplet<String, Double, Double>>> timeToTuple = new LinkedHashMap<>();
-    private Map<String, Boolean> clientExists = new HashMap<>();
+    private List<Double> timeToSleep = new ArrayList<>();
     
     private volatile boolean runCompleted = false;
     private volatile boolean needToWaitForBacklogDraining = false;
@@ -117,6 +117,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
             Iterator<Entry<Double, List<Triplet<String, Double, Double>>>> it = 
                 timeToTuple.entrySet().iterator();
             Double keyToRemove = null;
+            int j = 0;
             while (it.hasNext()) {
                 // The triple consists of the ClientID, latitude and longitude of the vehicle
                 List<Triplet<String, Double, Double>> value = it.next().getValue();
@@ -141,7 +142,8 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                 }
                 it.remove();
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(timeToSleep.get(j).longValue());
+                    j++;
                 } catch (InterruptedException e) {
                     break;
                 }
@@ -177,6 +179,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
 
         try{
             Scanner locReader = new Scanner(loc);
+            Double prev = null;
             while (locReader.hasNextLine()) {
                 String line = locReader.nextLine();
                 String[] fields = line.split("\\s+");
@@ -192,6 +195,10 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                         Double.parseDouble(fields[1]), Double.parseDouble(fields[2])));
                     timeToTuple.put(time, insertVal);
                 }
+                if (prev != null) {
+                    timeToSleep.add(time - prev);
+                }
+                prev = time;
             }
         } catch (FileNotFoundException ex) {
             log.warn("Failure in opening the given file", ex);

@@ -150,7 +150,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
             log.info("Created {} consumers in {} ms", count, curSubTime);
 
             curSubTime *= 1000;
-            log.error("cur sub time = {}", (long) curSubTime);
+            log.info("cur sub time = {}", (long) curSubTime);
             subscriptionChangeLatencyRecorder.recordValue((long) curSubTime);
             subscriptionChangeCumulativeLatencyRecorder.recordValue((long) curSubTime);
 
@@ -275,7 +275,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         BenchmarkProducer producer = future.join();
 
         ProducerTask producerTask = new ProducerTask(producer, topic, payloadData);
-        scheduledExecutor.scheduleAtFixedRate(producerTask, 0, 1, TimeUnit.SECONDS);
+        scheduledExecutor.scheduleAtFixedRate(producerTask, 0, 2, TimeUnit.SECONDS);
         producers.put(producerID,
             new Pair<ScheduledExecutorService, BenchmarkProducer>(scheduledExecutor, producer));
 
@@ -292,8 +292,9 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
             Timer timer = new Timer();
 
             List<BenchmarkConsumer> bConsumers = new ArrayList<>();
-            consumerAssignment.topicsSubscriptions.stream().map(ts -> benchmarkDriver.createConsumer(
-                    ts.topic, ts.subscription, this)).collect(toList()).forEach(f->bConsumers.add(f.join()));
+            consumerAssignment.topicsSubscriptions.stream().map(ts -> benchmarkDriver
+                .createConsumer(ts.topic, ts.subscription, this))
+                .collect(toList()).forEach(f->bConsumers.add(f.join()));
 
             HashMap<String, BenchmarkConsumer> tc = new HashMap<>();
             bConsumers.forEach(c -> tc.put(c.getTopic(), c));
@@ -365,8 +366,6 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         long now = System.currentTimeMillis();
         long endToEndLatencyMicros = TimeUnit.MILLISECONDS.toMicros(now - publishTimestamp);
         if (endToEndLatencyMicros > 0) {
-            log.error("now : {}, publishTimestamp: {}, endToEndLatencyMicros: {}",
-                now, publishTimestamp, endToEndLatencyMicros);
             endToEndCumulativeLatencyRecorder.recordValue(endToEndLatencyMicros);
             endToEndLatencyRecorder.recordValue(endToEndLatencyMicros);
             endToEndLatencyStats.registerSuccessfulEvent(endToEndLatencyMicros,
@@ -434,8 +433,10 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
             });
             producers.clear();
 
+            // log.info("inside stopAll()");
             consumers.forEach((k, v) -> v.forEach((k1, v1) -> { 
                 try{
+                    // log.info("k1: {}", k1);
                     v1.close();
                 } catch (Exception ex) {
                     log.warn("Error occured while closing the consumer connection, {}", ex);
