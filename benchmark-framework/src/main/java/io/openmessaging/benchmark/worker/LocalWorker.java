@@ -435,6 +435,10 @@ public class LocalWorker implements Worker, ConsumerCallback {
     }
 
     @Override
+    public void messageReceived(byte[] data, long publishTimestamp, String subscriptionName) {
+    }
+    
+    @Override
     public void messageReceived(byte[] data, long publishTimestamp) {
         messagesReceived.increment();
         totalMessagesReceived.increment();

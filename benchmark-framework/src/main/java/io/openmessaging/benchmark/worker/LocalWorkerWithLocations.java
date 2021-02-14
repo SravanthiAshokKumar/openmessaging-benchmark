@@ -4,6 +4,7 @@ import static java.util.stream.Collectors.toList;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
@@ -17,6 +18,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.*;
 
 import io.openmessaging.benchmark.driver.BenchmarkConsumer;
 import io.openmessaging.benchmark.driver.BenchmarkDriver;
@@ -98,6 +100,10 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
     private final Recorder subscriptionChangeCumulativeLatencyRecorder = new Recorder(
         TimeUnit.SECONDS.toMicros(60), 5);
 
+    private Map<String, ConcurrentHashMap<String, Long>> messagesSentMetadata = 
+        new ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>();
+    private Map<String, ConcurrentHashMap<String, Long>> messagesReceivedMetadata = 
+        new ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>();
 
     private boolean testCompleted = false;
 
@@ -167,12 +173,14 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
 
     class ProducerTask implements Runnable {
         private BenchmarkProducer producer;
+        private String producerID;
         private String topic;
         private byte[] payloadData;
         private KeyDistributor keyDistributor;
 
-        public ProducerTask(BenchmarkProducer producer, String topic, byte[] payloadData) {
+        public ProducerTask(BenchmarkProducer producer, String producerID, String topic, byte[] payloadData) {
             this.producer = producer;
+            this.producerID = producerID;
             this.topic = topic;
             this.payloadData = payloadData;
             this.keyDistributor = KeyDistributor.build(KeyDistributorType.NO_KEY);
@@ -199,6 +207,19 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
                 messagesSentCounter.inc();
                 bytesSent.add(payloadData.length);
                 bytesSentCounter.add(payloadData.length);
+
+                if (messagesSentMetadata.containsKey(producerID)) {
+                    long num = 1;
+                    if (messagesSentMetadata.get(producerID).containsKey(topic)) {
+                        num = messagesSentMetadata.get(producerID).get(topic);
+                        num++;
+                    }
+                    messagesSentMetadata.get(producerID).put(topic, num);
+                } else {
+                    ConcurrentHashMap<String, Long> topicMap = new ConcurrentHashMap<>();
+                    topicMap.put(topic, Long.valueOf(1));
+                    messagesSentMetadata.put(producerID, topicMap);
+                }
 
                 long latencyMicros = TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - sendTime);
                 publishLatencyRecorder.recordValue(latencyMicros);
@@ -274,7 +295,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         CompletableFuture<BenchmarkProducer> future = benchmarkDriver.createProducer(topic);
         BenchmarkProducer producer = future.join();
 
-        ProducerTask producerTask = new ProducerTask(producer, topic, payloadData);
+        ProducerTask producerTask = new ProducerTask(producer, producerID, topic, payloadData);
         scheduledExecutor.scheduleAtFixedRate(producerTask, 0, 2, TimeUnit.SECONDS);
         producers.put(producerID,
             new Pair<ScheduledExecutorService, BenchmarkProducer>(scheduledExecutor, producer));
@@ -334,6 +355,9 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         stats.subscriptionChangeLatency = 
             subscriptionChangeLatencyRecorder.getIntervalHistogram();
 
+        stats.sentMetadata = messagesSentMetadata.toString();
+        stats.receivedMetadata = messagesReceivedMetadata.toString();
+
         return stats;
     }
 
@@ -356,12 +380,35 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
     }
 
     @Override
-    public void messageReceived(byte[] data, long publishTimestamp) {
+    public void messageReceived(byte[] payload, long publishTimestamp) {
+    }
+
+    @Override
+    public void messageReceived(byte[] data, long publishTimestamp, String subscriptionName) {
         messagesReceived.increment();
         totalMessagesReceived.increment();
         messagesReceivedCounter.inc();
         bytesReceived.add(data.length);
         bytesReceivedCounter.add(data.length);
+
+        String s = new String(data, StandardCharsets.UTF_8);
+        Pattern p = Pattern.compile("CLIENT_ID: .+");
+        Matcher matcher = p.matcher(s);
+        if (matcher.find()) {
+            String matched = matcher.group();
+            if (messagesReceivedMetadata.containsKey(subscriptionName)) {
+                long num = 1;
+                if (messagesReceivedMetadata.get(subscriptionName).containsKey(matched)) {
+                    num = messagesReceivedMetadata.get(subscriptionName).get(matched);
+                    num++;
+                }
+                messagesReceivedMetadata.get(subscriptionName).put(matched, num);
+            } else {
+                ConcurrentHashMap<String, Long> topicMap = new ConcurrentHashMap<>();
+                topicMap.put(matched, Long.valueOf(1));
+                messagesReceivedMetadata.put(subscriptionName, topicMap);
+            }
+        }
 
         long now = System.currentTimeMillis();
         long endToEndLatencyMicros = TimeUnit.MILLISECONDS.toMicros(now - publishTimestamp);
@@ -400,6 +447,8 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         endToEndLatencyRecorder.reset();
         endToEndCumulativeLatencyRecorder.reset();
         subscriptionChangeLatencyRecorder.reset();
+        messagesSentMetadata = new ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>();
+        messagesReceivedMetadata = new ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>();
     }
 
     @Override
@@ -434,14 +483,16 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
             producers.clear();
 
             // log.info("inside stopAll()");
-            consumers.forEach((k, v) -> v.forEach((k1, v1) -> { 
-                try{
-                    // log.info("k1: {}", k1);
-                    v1.close();
-                } catch (Exception ex) {
-                    log.warn("Error occured while closing the consumer connection, {}", ex);
-                }
-            }));
+            consumers.forEach((k, v) -> {
+                log.error("k: {}", k);
+                v.forEach((k1, v1) -> { 
+                    try{
+                        v1.close();
+                    } catch (Exception ex) {
+                        log.warn("Error occured while closing the consumer connection, {}", ex);
+                    }
+                });
+            });
             consumers.clear();
 
             if (benchmarkDriver != null) {

@@ -34,6 +34,7 @@ import io.openmessaging.benchmark.utils.Timer;
 import io.openmessaging.benchmark.utils.payload.FilePayloadReader;
 import io.openmessaging.benchmark.utils.payload.PayloadReader;
 
+import org.apache.commons.lang3.ArrayUtils;
 import org.javatuples.Triplet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,6 +56,10 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
 
     private Index index;
     private IndexConfig indexConfig;
+
+    private Map<String, List<List<String>>> allConsumerTopics 
+        = new HashMap<>();
+    private Map<String, List<String>> allProducerTopics = new HashMap<>();
 
     public WorkloadGeneratorWithLocations(String driverName, Workload workload,
         Worker worker, String locations) {
@@ -126,13 +131,32 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                     String clientID = tuple.getValue0();
                     
                     // get topics based on the location
-                    List<String> consumerTopics = index.getNearestNeighbors(tuple.getValue1(),
-                        tuple.getValue2());
                     String producerTopic = index.getStringValue(tuple.getValue1(),
                         tuple.getValue2());
+                    List<String> consumerTopics = index.getNearestNeighbors(tuple.getValue1(),
+                        tuple.getValue2());
+                    if (consumerTopics == null){
+                        consumerTopics = new ArrayList<>();
+                    }
+                    consumerTopics.add(producerTopic);
+                    if (allConsumerTopics.containsKey(clientID)) {
+                        allConsumerTopics.get(clientID).add(consumerTopics);
+                        allProducerTopics.get(clientID).add(producerTopic);
+                    } else {
+                        List temp = new ArrayList<List<String>>();
+                        temp.add(consumerTopics);
+                        List temp2 = new ArrayList<String>();
+                        temp2.add(producerTopic);
+                        allConsumerTopics.put(clientID, temp);
+                        allProducerTopics.put(clientID, temp2);
+                    }
                     // create consumer/producer and subscribe/publish
                     try {
-                        createProducer(producerTopic, clientID, payloadData);
+                        String addData = " CLIENT_ID: " + clientID + "--Topic: " + producerTopic;
+                        byte[] appendBytes = addData.getBytes();
+                        byte[] finalPayload = ArrayUtils.addAll(payloadData, appendBytes);
+
+                        createProducer(producerTopic, clientID, finalPayload);
                         if (consumerTopics != null) {
                             createConsumer(consumerTopics, clientID);
                         }
@@ -277,8 +301,13 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                     dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(99.9))),
                     throughputFormat.format(microsToMillis(stats.publishLatency.getMaxValue())));
 
-            result.messagesSent = stats.messagesSent;
-            result.messagesReceived = stats.messagesReceived;
+            result.messagesSent = stats.totalMessagesSent;
+            result.messagesReceived = stats.totalMessagesReceived;
+            result.sentMetadata = stats.sentMetadata;
+            result.receivedMetadata = stats.receivedMetadata;
+            result.allConsumerTopics = this.allConsumerTopics;
+            result.allProducerTopics = this.allProducerTopics;
+
             result.publishRate.add(publishRate);
             result.consumeRate.add(consumeRate);
             result.backlog.add(currentBacklog);

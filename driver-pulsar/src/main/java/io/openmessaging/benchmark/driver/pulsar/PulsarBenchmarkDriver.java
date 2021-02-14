@@ -188,7 +188,7 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
                     ConsumerCallback consumerCallback) {
         callback = consumerCallback;
         ConsumerBuilder<byte[]> cb = client.newConsumer().subscriptionType(SubscriptionType.Shared).messageListener((consumer, msg) -> {
-            consumerCallback.messageReceived(msg.getData(), msg.getPublishTime());
+            consumerCallback.messageReceived(msg.getData(), msg.getPublishTime(), subscriptionName);
             consumer.acknowledgeAsync(msg);
         });
         cb.topic(topic).subscriptionName(subscriptionName);

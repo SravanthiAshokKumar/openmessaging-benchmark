@@ -90,4 +90,10 @@ public class TestResult {
     public double aggregatedsubscriptionChangeLatency95pct;
     public double aggregatedsubscriptionChangeLatency99pct;
     public double aggregatedsubscriptionChangeLatencyMax;
+
+    public String sentMetadata;
+    public String receivedMetadata;
+
+    public Map<String, List<List<String>>> allConsumerTopics;
+    public Map<String, List<String>> allProducerTopics;
 }
