@@ -7,4 +7,5 @@ public class IndexConfig {
     public double maxY;
     public double blockSize;
     public String indexType;
+    public int precision;
 }

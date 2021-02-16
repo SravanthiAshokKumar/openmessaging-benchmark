@@ -6,21 +6,15 @@ import epl.pubsub.location.indexperf.IndexFactory;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.security.*; 
 import java.text.DecimalFormat;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Properties;
-import java.util.Scanner;
 
 import io.openmessaging.benchmark.worker.commands.ConsumerAssignment;
 import io.openmessaging.benchmark.worker.commands.CountersStats;
@@ -60,7 +54,10 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
     private Map<String, List<List<String>>> allConsumerTopics 
         = new HashMap<>();
     private Map<String, List<String>> allProducerTopics = new HashMap<>();
-
+    private Map<String, String> consumerToSubName = new HashMap<>();
+    SecureRandom random = new SecureRandom();
+    byte bytes[] = new byte[5];
+    
     public WorkloadGeneratorWithLocations(String driverName, Workload workload,
         Worker worker, String locations) {
         this.driverName = driverName;
@@ -96,7 +93,8 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                 indexConfig.maxY,
                 indexConfig.blockSize,
                 IndexFactory.IndexType.GEOHASH,
-                props
+                props,
+                indexConfig.precision
             );
         } else {
         index =
@@ -107,7 +105,8 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                 indexConfig.maxY,
                 indexConfig.blockSize,
                 IndexFactory.IndexType.RTREE,
-                props
+                props,
+                0
             );
         }
 
@@ -152,10 +151,11 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                     }
                     // create consumer/producer and subscribe/publish
                     try {
-                        String addData = " CLIENT_ID: " + clientID + "--Topic: " + producerTopic;
+                        String addData = " CLIENT_ID: " + clientID 
+                            + "--Topic: " + producerTopic;
                         byte[] appendBytes = addData.getBytes();
-                        byte[] finalPayload = ArrayUtils.addAll(payloadData, appendBytes);
-
+                        byte[] finalPayload = ArrayUtils.addAll(payloadData,
+                            appendBytes);
                         createProducer(producerTopic, clientID, finalPayload);
                         if (consumerTopics != null) {
                             createConsumer(consumerTopics, clientID);
@@ -196,6 +196,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
     @Override
     public void close() throws Exception {
         worker.stopAll();
+        consumerToSubName.clear();
     }
 
     private void parseLocations() {
@@ -229,10 +230,17 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
         }
     }
 
-    private ConsumerAssignment createConsumerAssignment(List<String> topics, String consumerID){
+    private ConsumerAssignment createConsumerAssignment(List<String> topics,
+        String consumerID){
+        
         ConsumerAssignment consumerAssignment = new ConsumerAssignment();
 
-        String subscriptionName = String.format("sub-%s", consumerID);
+        if (!consumerToSubName.containsKey(consumerID)) {
+            random.nextBytes(bytes);
+            consumerToSubName.put(consumerID, Arrays.toString(bytes));
+        }
+        String subscriptionName = String.format("%s-%s",
+            consumerToSubName.get(consumerID), consumerID);
         for(String topic: topics){
             consumerAssignment.topicsSubscriptions
                 .add(new TopicSubscription(topic, subscriptionName));
@@ -240,8 +248,11 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
         return consumerAssignment;
     }
     
-    private void createConsumer(List<String> topics, String consumerID) throws IOException {
-        ConsumerAssignment consumerAssignment = createConsumerAssignment(topics, consumerID);
+    private void createConsumer(List<String> topics, String consumerID)
+        throws IOException {
+        
+        ConsumerAssignment consumerAssignment = createConsumerAssignment(
+            topics, consumerID);
         Timer timer = new Timer();
 
         worker.createConsumers(consumerAssignment);

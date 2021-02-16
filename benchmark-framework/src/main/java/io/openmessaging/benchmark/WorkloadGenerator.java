@@ -298,7 +298,7 @@ public class WorkloadGenerator implements WorkloadGeneratorInterface {
 
         for(String topic: topics){
             for(int i = 0; i < workload.subscriptionsPerTopic; i++){
-                String subscriptionName = String.format("sub-%03d-%s", i, RandomGenerator.getRandomString());
+                String subscriptionName = String.format("subs-%03d-%s", i, RandomGenerator.getRandomString());
                 for (int j = 0; j < workload.consumerPerSubscription; j++) {
                     consumerAssignment.topicsSubscriptions
                         .add(new TopicSubscription(topic, subscriptionName));
