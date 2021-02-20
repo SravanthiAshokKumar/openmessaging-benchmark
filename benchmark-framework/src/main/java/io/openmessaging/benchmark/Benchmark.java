@@ -166,7 +166,7 @@ public class Benchmark {
                         generator = new WorkloadGenerator(driverConfiguration.name,
                             workload, worker);
                     }
-                    
+
                     TestResult result = generator.run();
 
                     String fileName = String.format("%s-%s-%s.json", workloadName,
@@ -180,12 +180,6 @@ public class Benchmark {
                     log.error("Failed to run the workload '{}' for driver '{}'",
                         workload.name, driverConfig, e);
                 }
-                // } finally {
-                //     try {
-                //         worker.stopAll();
-                //     } catch (IOException e) {
-                //     }
-                // }
             });
         });
 

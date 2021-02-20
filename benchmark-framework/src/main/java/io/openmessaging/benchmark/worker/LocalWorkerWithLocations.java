@@ -63,8 +63,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         new ConcurrentHashMap<String, Pair<ScheduledExecutorService, BenchmarkProducer>>();
     // consumer map contains the mapping of SubscriptionName to a map containing
     // TopicName to Consumer mapping
-    private Map<String, HashMap<String, BenchmarkConsumer>> consumers = 
-        new ConcurrentHashMap<String, HashMap<String, BenchmarkConsumer>>();
+    private Map<String, Map<String, BenchmarkConsumer>> consumers = new ConcurrentHashMap<>();
 
     // defining stats
     private final StatsLogger statsLogger;
@@ -105,6 +104,8 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
     private Map<String, ConcurrentHashMap<String, Long>> messagesReceivedMetadata = 
         new ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>();
 
+    private List<ExecutorService> executors = new ArrayList<>();
+
     private boolean testCompleted = false;
 
     private boolean consumersArePaused = false;
@@ -115,7 +116,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         private List<String> topics;
         private String subscription;
         private ConsumerCallback consumerCallback;
-
+        
         public SubscriptionChangeTask(List<String> topics, String subscription, 
                                       ConsumerCallback consumerCallback) {
             this.topics = topics;
@@ -135,8 +136,8 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         public void changeSubscriptions() {
 
             Timer timer = new Timer();
-            HashMap<String, BenchmarkConsumer> oldTc = consumers.get(subscription);
-            HashMap<String, BenchmarkConsumer> newTc = new HashMap<>();
+            Map<String, BenchmarkConsumer> oldTc = consumers.get(subscription);
+            Map<String, BenchmarkConsumer> newTc = new HashMap<>();
 
             int count = 0;
             List<String> oldTopics = new ArrayList();
@@ -155,10 +156,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
             double curSubTime = timer.elapsedMillis();
             log.info("Created {} consumers in {} ms", count, curSubTime);
 
-            curSubTime *= 1000;
-            log.info("cur sub time = {}", (long) curSubTime);
-            subscriptionChangeLatencyRecorder.recordValue((long) curSubTime);
-            subscriptionChangeCumulativeLatencyRecorder.recordValue((long) curSubTime);
+            consumers.put(this.subscription, newTc);
 
             for (Entry<String, BenchmarkConsumer> e : oldTc.entrySet()) {
                 try {
@@ -167,7 +165,11 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
                     log.warn("Error occured while closing the consumer connection, {}", ex);
                 }
             }
-            consumers.put(this.subscription, newTc);
+
+            log.info("cur sub time = {}", (long) curSubTime);
+            subscriptionChangeLatencyRecorder.recordValue((long) curSubTime);
+            subscriptionChangeCumulativeLatencyRecorder.recordValue((long) curSubTime);
+
         }
     }
 
@@ -192,7 +194,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
                 Timer timer = new Timer();
                 runTask();
             } catch(Exception e) {
-                log.error("Could NOT change Subscriptions because {}", e.getMessage());
+                log.error("Could NOT create ProducerTask because {}", e.getMessage());
             }
         }
         
@@ -282,50 +284,55 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         
         Timer timer = new Timer();
 
+        String topicPrefix = benchmarkDriver.getTopicNamePrefix();
+        String editTopic = String.format("%s%s", topicPrefix, topic);
         if (producers.containsKey(producerID)) {
             BenchmarkProducer currentProducer = producers.get(producerID).getValue1();
-            if (topic.equals(currentProducer.getTopic())) {
+            if (editTopic.equals(currentProducer.getTopic())) {
                 return;
             }
-            ScheduledExecutorService currentExecutor = producers.get(producerID).getValue0();
+            ScheduledExecutorService currentExecutor = 
+                producers.get(producerID).getValue0();
             currentExecutor.shutdownNow();
         }
 
         ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(5);
-        CompletableFuture<BenchmarkProducer> future = benchmarkDriver.createProducer(topic);
+        CompletableFuture<BenchmarkProducer> future = benchmarkDriver.createProducer(editTopic);
         BenchmarkProducer producer = future.join();
 
-        ProducerTask producerTask = new ProducerTask(producer, producerID, topic, payloadData);
+        ProducerTask producerTask = new ProducerTask(producer, producerID, editTopic, payloadData);
         scheduledExecutor.scheduleAtFixedRate(producerTask, 0, 2, TimeUnit.SECONDS);
         producers.put(producerID,
-            new Pair<ScheduledExecutorService, BenchmarkProducer>(scheduledExecutor, producer));
+            new Pair<ScheduledExecutorService, BenchmarkProducer>(
+                scheduledExecutor, producer));
 
-        log.info("Created producer in {} ms, topic {}", timer.elapsedMillis(), topic);
+        log.info("Created producer in {} ms, topic {}", timer.elapsedMillis(), editTopic);
     }
 
     @Override
     public void createConsumers(ConsumerAssignment consumerAssignment) {
         String subscription = consumerAssignment.topicsSubscriptions.get(0).subscription;
         List<String> topics = consumerAssignment.topicsSubscriptions.stream()
-            .map(ts -> ts.topic).collect(toList());
+            .map(ts -> String.format("%s%s",benchmarkDriver.getTopicNamePrefix(), ts.topic))
+            .collect(toList());
 
         if (!consumers.containsKey(subscription)) {
             Timer timer = new Timer();
 
             List<BenchmarkConsumer> bConsumers = new ArrayList<>();
-            consumerAssignment.topicsSubscriptions.stream().map(ts -> benchmarkDriver
-                .createConsumer(ts.topic, ts.subscription, this))
-                .collect(toList()).forEach(f->bConsumers.add(f.join()));
-
-            HashMap<String, BenchmarkConsumer> tc = new HashMap<>();
+            topics.stream().map(t -> benchmarkDriver
+                .createConsumer(t, subscription, this))
+            .collect(toList()).forEach(f->bConsumers.add(f.join()));
+            Map<String, BenchmarkConsumer> tc = new HashMap<>();
             bConsumers.forEach(c -> tc.put(c.getTopic(), c));
             consumers.put(subscription, tc);
             log.info("Created {} consumers in {} ms", topics.size(), timer.elapsedMillis());
         } else {
             ExecutorService subChangeExecutor = Executors.newSingleThreadScheduledExecutor();
             SubscriptionChangeTask subscriptionChangeTask = 
-                new SubscriptionChangeTask(topics, subscription, this); 
+                new SubscriptionChangeTask(topics, subscription, this);
             subChangeExecutor.execute(subscriptionChangeTask);
+            executors.add(subChangeExecutor);
         }
     }
 
@@ -351,7 +358,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
 
         stats.publishLatency = publishLatencyRecorder.getIntervalHistogram();
         stats.endToEndLatency = endToEndLatencyRecorder.getIntervalHistogram();
-        
+
         stats.subscriptionChangeLatency = 
             subscriptionChangeLatencyRecorder.getIntervalHistogram();
 
@@ -482,9 +489,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
             });
             producers.clear();
 
-            // log.info("inside stopAll()");
             consumers.forEach((k, v) -> {
-                log.error("k: {}", k);
                 v.forEach((k1, v1) -> { 
                     try{
                         v1.close();
@@ -492,12 +497,15 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
                         log.warn("Error occured while closing the consumer connection, {}", ex);
                     }
                 });
+                v.clear();
             });
             consumers.clear();
 
+            executors.forEach(e -> e.shutdownNow());
+            executors.clear();
+
             if (benchmarkDriver != null) {
                 benchmarkDriver.close();
-                
                 benchmarkDriver = null;
             }
         } catch (Exception e) {

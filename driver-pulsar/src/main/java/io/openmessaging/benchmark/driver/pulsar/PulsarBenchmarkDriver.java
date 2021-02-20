@@ -164,7 +164,7 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
 
     @Override
     public String getTopicNamePrefix() {
-        return config.client.topicType + "://" + namespace + "/test";
+        return config.client.topicType + "://" + namespace + "/";
     }
 
     @Override

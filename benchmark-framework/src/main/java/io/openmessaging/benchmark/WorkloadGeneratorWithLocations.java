@@ -24,6 +24,7 @@ import io.openmessaging.benchmark.worker.commands.TopicSubscription;
 import io.openmessaging.benchmark.worker.Worker;
 import io.openmessaging.benchmark.worker.IndexConfig;
 import io.openmessaging.benchmark.utils.PaddingDecimalFormat;
+import io.openmessaging.benchmark.utils.RandomGenerator;
 import io.openmessaging.benchmark.utils.Timer;
 import io.openmessaging.benchmark.utils.payload.FilePayloadReader;
 import io.openmessaging.benchmark.utils.payload.PayloadReader;
@@ -55,8 +56,6 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
         = new HashMap<>();
     private Map<String, List<String>> allProducerTopics = new HashMap<>();
     private Map<String, String> consumerToSubName = new HashMap<>();
-    SecureRandom random = new SecureRandom();
-    byte bytes[] = new byte[5];
     
     public WorkloadGeneratorWithLocations(String driverName, Workload workload,
         Worker worker, String locations) {
@@ -93,8 +92,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                 indexConfig.maxY,
                 indexConfig.blockSize,
                 IndexFactory.IndexType.GEOHASH,
-                props,
-                indexConfig.precision
+                props
             );
         } else {
         index =
@@ -105,8 +103,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                 indexConfig.maxY,
                 indexConfig.blockSize,
                 IndexFactory.IndexType.RTREE,
-                props,
-                0
+                props
             );
         }
 
@@ -123,6 +120,12 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
             Double keyToRemove = null;
             int j = 0;
             while (it.hasNext()) {
+                try {
+                    Thread.sleep(timeToSleep.get(j).longValue()*5000);
+                    j++;
+                } catch (InterruptedException e) {
+                    break;
+                }
                 // The triple consists of the ClientID, latitude and longitude of the vehicle
                 List<Triplet<String, Double, Double>> value = it.next().getValue();
                 for (int i = 0; i < value.size(); i++) {
@@ -132,11 +135,18 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                     // get topics based on the location
                     String producerTopic = index.getStringValue(tuple.getValue1(),
                         tuple.getValue2());
-                    List<String> consumerTopics = index.getNearestNeighbors(tuple.getValue1(),
-                        tuple.getValue2());
-                    if (consumerTopics == null){
-                        consumerTopics = new ArrayList<>();
+
+                    List<String> consumerTopics;
+                    {
+                        List<String> temp = index.getNearestNeighbors(tuple.getValue1(),
+                            tuple.getValue2());
+                        if (temp == null){
+                            consumerTopics = new ArrayList<>();
+                        } else {
+                            consumerTopics = new ArrayList<>(temp);
+                        }
                     }
+
                     consumerTopics.add(producerTopic);
                     if (allConsumerTopics.containsKey(clientID)) {
                         allConsumerTopics.get(clientID).add(consumerTopics);
@@ -165,12 +175,6 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                     }
                 }
                 it.remove();
-                try {
-                    Thread.sleep(timeToSleep.get(j).longValue());
-                    j++;
-                } catch (InterruptedException e) {
-                    break;
-                }
             }
         };
 
@@ -204,7 +208,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
 
         try{
             Scanner locReader = new Scanner(loc);
-            Double prev = null;
+            Double prev = 0;
             while (locReader.hasNextLine()) {
                 String line = locReader.nextLine();
                 String[] fields = line.split("\\s+");
@@ -220,9 +224,8 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                         Double.parseDouble(fields[1]), Double.parseDouble(fields[2])));
                     timeToTuple.put(time, insertVal);
                 }
-                if (prev != null) {
-                    timeToSleep.add(time - prev);
-                }
+ 
+                timeToSleep.add(time - prev);
                 prev = time;
             }
         } catch (FileNotFoundException ex) {
@@ -236,12 +239,11 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
         ConsumerAssignment consumerAssignment = new ConsumerAssignment();
 
         if (!consumerToSubName.containsKey(consumerID)) {
-            random.nextBytes(bytes);
-            consumerToSubName.put(consumerID, Arrays.toString(bytes));
+            consumerToSubName.put(consumerID, String.format("%s-%s", 
+                RandomGenerator.getRandomString(), consumerID));
         }
-        String subscriptionName = String.format("%s-%s",
-            consumerToSubName.get(consumerID), consumerID);
-        for(String topic: topics){
+        String subscriptionName = consumerToSubName.get(consumerID);
+        for(String topic: topics) {
             consumerAssignment.topicsSubscriptions
                 .add(new TopicSubscription(topic, subscriptionName));
         }

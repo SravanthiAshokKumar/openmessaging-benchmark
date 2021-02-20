@@ -30,7 +30,7 @@ producerRate: 50000
 consumerBacklogSizeGB: 0
 testDurationMinutes: 2
 indexConfig:
-  blockSize: 0.001
+  blockSize: 0.0001
   indexType: GEOHASH
   maxX: 6.185742
   maxY: 49.638941
