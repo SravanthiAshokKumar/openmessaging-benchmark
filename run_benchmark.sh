@@ -15,8 +15,7 @@ copy_config_data()
             filename="$file_beg$i$file_end"
             scp $BENCHMARK_HOME/locations/$filename $client:$BENCHMARK_HOME/locations/$filename
             dirname="$file_beg$i"
-            rm -rf output/$dirname
-            mkdir output/$dirname
+            ssh $client "rm -rf $BENCHMARK_HOME/output/$dirname; mkdir $BENCHMARK_HOME/output/$dirname"
             i+=1
         done
         # TODO Make the SCP target location config
@@ -68,13 +67,13 @@ start_benchmark_workers()
 {
     i=1
     cd $BENCHMARK_HOME
-    ./bin/benchmark --drivers driver-pulsar/pulsar-temp.yaml --locations locations/worker0_data.json workloads/1-topic-16-partitions-1kb.yaml > benchmark.out 2>&1 &
+    ./bin/benchmark --drivers driver-pulsar/pulsar-temp.yaml --locations locations/worker0_data.json --outputDir output/worker0 workloads/1-topic-16-partitions-1kb.yaml > benchmark.out 2>&1 &
 
     for client in $CLIENTS
     do
         filename="$file_beg$i$file_end"
         dirname="$file_beg$i"
-        ssh $client "cd $BENCHMARK_HOME; ./bin/benchmark --drivers driver-pulsar/pulsar-temp.yaml --locations locations/$filename --outputDir $dirname workloads/1-topic-16-partitions-1kb.yaml > benchmark.out 2>&1 &"
+        ssh $client "cd $BENCHMARK_HOME; ./bin/benchmark --drivers driver-pulsar/pulsar-temp.yaml --locations locations/$filename --outputDir output/$dirname workloads/1-topic-16-partitions-1kb.yaml > benchmark.out 2>&1 &"
         i+=1
     done
 }
@@ -94,7 +93,7 @@ collect_results()
     for client in $CLIENTS
     do
         dirname="$file_beg$i"        
-        scp -r $client:$BENCHMARK_HOME/dirname $BENCHMARK_HOME/output/
+        scp -r $client:$BENCHMARK_HOME/output/$dirname $BENCHMARK_HOME/output/
         i+=1
     done
 }
