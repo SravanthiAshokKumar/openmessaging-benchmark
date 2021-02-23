@@ -18,7 +18,6 @@ copy_config_data()
             ssh $client "rm -rf $BENCHMARK_HOME/output/$dirname; mkdir $BENCHMARK_HOME/output/$dirname"
             i+=1
         done
-        # TODO Make the SCP target location config
         
     fi
 }
@@ -29,7 +28,6 @@ start_cluster()
     pulsar_home=$2
     
     echo "Starting Global zookeeper"
-    # ssh $broker_ip "$pulsar_home/bin/pulsar-daemon start global-zookeeper $pulsar_home/conf/global_zookeeper.conf"
     $pulsar_home/bin/pulsar-daemon start global-zookeeper $pulsar_home/conf/global_zookeeper.conf
     sleep 5
 
@@ -105,13 +103,7 @@ CLIENTS="192.168.124.112"
 
 file_beg="worker"
 file_end="_data.json"
-main_client=$BROKER
 workers=""
-# for client in $CLIENTS
-# do
-#     main_client=$client
-#     break
-# done
 
 for client_ip in $CLIENTS
 do
