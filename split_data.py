@@ -26,7 +26,7 @@ def main(infile, outdir, workers):
             w = (w + 1)%workers
     
     for i in range(workers):
-        fileName = os.path.join(outdir, "worker{}_data.txt".format(i))
+        fileName = os.path.join(outdir, "worker{}_data.json".format(i))
         with open(fileName, 'w+') as outfile:
             outfile.writelines("%s" % entry for entry in workerTables[i])
 

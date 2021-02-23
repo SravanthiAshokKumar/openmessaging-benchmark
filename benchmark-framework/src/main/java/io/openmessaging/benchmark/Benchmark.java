@@ -72,6 +72,9 @@ public class Benchmark {
 
         @Parameter(names = {"-l", "--locations"}, description = "Trajectory/location change file")
         public String locations;
+
+        @Parameter(names = {"-o", "--outputDir"}, description = "Output file directory")
+        public String outputDir;
     }
 
     public static void main(String[] args) throws Exception {
@@ -169,7 +172,7 @@ public class Benchmark {
 
                     TestResult result = generator.run();
 
-                    String fileName = String.format("%s-%s-%s.json", workloadName,
+                    String fileName = String.format("%s/%s-%s-%s.json", arguments.outputDir, workloadName,
                         driverConfiguration.name, dateFormat.format(new Date()));
 
                     log.info("Writing test result into {}", fileName);

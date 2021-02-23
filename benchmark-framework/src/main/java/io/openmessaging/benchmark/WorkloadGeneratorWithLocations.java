@@ -208,7 +208,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
 
         try{
             Scanner locReader = new Scanner(loc);
-            Double prev = 0;
+            Double prev = Double.valueOf(0);
             while (locReader.hasNextLine()) {
                 String line = locReader.nextLine();
                 String[] fields = line.split("\\s+");
