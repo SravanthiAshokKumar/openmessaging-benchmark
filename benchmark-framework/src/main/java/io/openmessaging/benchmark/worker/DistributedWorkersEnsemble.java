@@ -93,6 +93,10 @@ public class DistributedWorkersEnsemble implements Worker {
     }
 
     @Override
+    public void createProducers(String topic, String producerID, byte[] payloadData) {
+    }
+
+    @Override
     public void createProducers(List<String> topics) {
         List<List<String>> topicsPerProducer = ListPartition.partitionList(topics,
                                                             producerWorkers.size());
