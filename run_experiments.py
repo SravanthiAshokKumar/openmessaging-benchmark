@@ -33,29 +33,29 @@ def main(configFile):
 
     sumo = read_config['sumo']
     files, filename = find_files(sumo['fcd_output'])
-    if filename not in files:
-        os.system('sumo -c ' + sumo['scenario'] + ' --step-length ' + str(sumo['step_length']) +
-            ' --fcd-output ' + sumo['fcd_output'] + ' --fcd-output.geo --begin ' + str(sumo['begin']) +
-            ' --end ' + str(sumo['end']))
+    # if filename not in files:
+    os.system('sumo -c ' + sumo['scenario'] + ' --step-length ' + str(sumo['step_length']) +
+        ' --fcd-output ' + sumo['fcd_output'] + ' --fcd-output.geo --begin ' + str(sumo['begin']) +
+        ' --end ' + str(sumo['end']))
     
     workload = read_config['workload']
     index_config = read_config['index_config']
     
     parse = read_config['parse']
-    # files, filename = find_files(parse['fcd_output'])
+    files, filename = find_files(parse['fcd_output'])
     # if filename not in files:
-    # index_config['minLat'], index_config['minLng'], index_config['maxLat'], index_config['maxLng'] =\
-    #     pfo.main(parse['fcd_output'], parse['ouput_dir'], parse['low_time'], parse['high_time'])
+    index_config['minLat'], index_config['minLng'], index_config['maxLat'], index_config['maxLng'] =\
+        pfo.main(parse['fcd_output'], parse['ouput_dir'], parse['low_time'], parse['high_time'])
 
-    # split = read_config['split']
-    # sd.main(split['input_file'], split['output_dir'], split['num_workers'])
+    split = read_config['split']
+    sd.main(split['input_file'], split['output_dir'], split['num_workers'])
 
-    # cw.generateYamlFiles(workload, index_config)
+    cw.generateYamlFiles(workload, index_config)
 
     automation = read_config['automation']
-    os.system('bash run_benchmark.sh {} {} {} {} {}'.format(automation['benchmark_home'],
+    os.system('bash run_benchmark.sh {} {} {} {} {} {}'.format(automation['benchmark_home'],
         automation['pulsar_home'], automation['broker'], automation['clients'],
-        automation['driver_config']))
+        automation['driver_config'], automation['data_dir']))
     
 if __name__ == '__main__':
     main(sys.argv[1])

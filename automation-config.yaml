@@ -39,3 +39,4 @@ automation:
   broker: 192.168.124.238
   clients: "192.168.124.112"
   driver_config: pulsar-temp.yaml
+  data_dir: "parsed/split"

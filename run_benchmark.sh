@@ -13,7 +13,7 @@ copy_config_data()
         do
             scp /tmp/pulsar-temp.yaml $client:$BENCHMARK_HOME/driver-pulsar/pulsar-temp.yaml
             filename="$file_beg$i$file_end"
-            scp $BENCHMARK_HOME/locations/$filename $client:$BENCHMARK_HOME/locations/$filename
+            scp $BENCHMARK_HOME/$DATA_DIR/$filename $client:$BENCHMARK_HOME/locations/$filename
             dirname="$file_beg$i"
             ssh $client "rm -rf $BENCHMARK_HOME/output/$dirname; mkdir $BENCHMARK_HOME/output/$dirname"
             i+=1
@@ -69,7 +69,7 @@ start_benchmark_workers()
     do
         filename="$file_beg$i$file_end"
         dirname="$file_beg$i"
-        ssh $client "cd $BENCHMARK_HOME; ./bin/benchmark --drivers driver-pulsar/$driver_config \
+        ssh $client "cd $BENCHMARK_HOME; ./bin/benchmark --drivers driver-pulsar/$DRIVER_CONFIG \
             --locations locations/$filename --outputDir output/$dirname \
             workloads/1-topic-16-partitions-1kb.yaml > benchmark.out 2>&1 &"
         i+=1
@@ -99,7 +99,8 @@ BENCHMARK_HOME=$1
 PULSAR_HOME=$2
 BROKER=$3
 CLIENTS=$4
-driver_config=$5
+DRIVER_CONFIG=$5
+DATA_DIR=$6
 
 file_beg="worker"
 file_end="_data.json"
