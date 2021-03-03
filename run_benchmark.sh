@@ -8,7 +8,7 @@ copy_config_data()
         cp $BENCHMARK_HOME/driver-pulsar/pulsar-temp.yaml /tmp/
         sed -i "s/BROKER_IP/${broker_ip}/g" /tmp/pulsar-temp.yaml
         
-        i=1
+        i=0
         for client in $CLIENTS
         do
             scp /tmp/pulsar-temp.yaml $client:$BENCHMARK_HOME/driver-pulsar/pulsar-temp.yaml
@@ -63,22 +63,21 @@ stop_cluster()
 
 start_benchmark_workers()
 {
-    i=1
-    cd $BENCHMARK_HOME
-    ./bin/benchmark --drivers driver-pulsar/pulsar-temp.yaml --locations locations/worker0_data.json --outputDir output/worker0 workloads/1-topic-16-partitions-1kb.yaml > benchmark.out 2>&1 &
-
+    i=0
+    
     for client in $CLIENTS
     do
         filename="$file_beg$i$file_end"
         dirname="$file_beg$i"
-        ssh $client "cd $BENCHMARK_HOME; ./bin/benchmark --drivers driver-pulsar/pulsar-temp.yaml --locations locations/$filename --outputDir output/$dirname workloads/1-topic-16-partitions-1kb.yaml > benchmark.out 2>&1 &"
+        ssh $client "cd $BENCHMARK_HOME; ./bin/benchmark --drivers driver-pulsar/$driver_config \
+            --locations locations/$filename --outputDir output/$dirname \
+            workloads/1-topic-16-partitions-1kb.yaml > benchmark.out 2>&1 &"
         i+=1
     done
 }
 
 stop_benchmark_workers()
 {
-    pkill java
     for client in $CLIENTS
     do
         ssh $client "pkill java"
@@ -87,7 +86,7 @@ stop_benchmark_workers()
 
 collect_results()
 {
-    i=1
+    i=0
     for client in $CLIENTS
     do
         dirname="$file_beg$i"        
@@ -96,10 +95,11 @@ collect_results()
     done
 }
 
-BENCHMARK_HOME="/home/surveillance/openmessaging-benchmark"
-PULSAR_HOME="/home/surveillance/pulsar/"
-BROKER=192.168.124.238
-CLIENTS="192.168.124.112"
+BENCHMARK_HOME=$1
+PULSAR_HOME=$2
+BROKER=$3
+CLIENTS=$4
+driver_config=$5
 
 file_beg="worker"
 file_end="_data.json"
@@ -119,7 +119,6 @@ stop_benchmark_workers
 stop_cluster $BROKER $PULSAR_HOME
 
 start_cluster $BROKER $PULSAR_HOME
-python3 $BENCHMARK_HOME/split_data.py -i $BENCHMARK_HOME/locations/locations.data -o $BENCHMARK_HOME/locations -w 2
 copy_config_data
 start_benchmark_workers
 

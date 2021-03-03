@@ -1,0 +1,41 @@
+sumo:
+  scenario: sumo/scenario/dua.static.sumocfg
+  step_length: 1.0
+  fcd_output: sumo/output/fcd_output_static_27000_28000.txt
+  begin: 27000
+  end: 28000
+
+parse:
+  fcd_output: sumo/output/fcd_output_static_27000_28000.txt
+  ouput_dir: parsed/locations/static_27000_28000_locations.data
+  low_time: 27000
+  high_time: 28000
+
+split:
+  input_file: parsed/locations/static_27000_28000_locations.data
+  output_dir: parsed/split/
+  num_workers: 2
+
+workload:
+  topics: 1
+  partitionsPerTopic: 16
+  messageSize: 1024
+  payloadFile: "1Kb"
+  consumerPerSubscription: 1
+  producersPerTopic: 1
+  producerRate: 50000
+    
+index_config:
+  blockSize: 0.0001
+  indexType: GEOHASH
+  minLat: 6.216835
+  minLng: 49.652556
+  maxLat: 6.031303
+  maxLng: 49.549368
+
+automation:
+  benchmark_home: "/home/surveillance/openmessaging-benchmark"
+  pulsar_home: "/home/surveillance/pulsar"
+  broker: 192.168.124.238
+  clients: "192.168.124.112"
+  driver_config: pulsar-temp.yaml
