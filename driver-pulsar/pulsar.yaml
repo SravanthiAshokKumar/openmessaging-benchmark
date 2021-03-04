@@ -27,6 +27,7 @@ client:
   ioThreads: 1
   connectionsPerBroker: 1
   clusterName: local
+  cluster: local
   namespacePrefix: benchmark/ns
   topicType: non_persistent
  # persistence:
@@ -36,10 +37,10 @@ client:
  #   deduplicationEnabled: false
   tlsAllowInsecureConnection: false
   tlsEnableHostnameVerification: false
-  tlsTrustCertsFilePath:
-  authentication:
-    plugin:
-    data:
+#  tlsTrustCertsFilePath:
+#  authentication:
+#    plugin:
+#    data:
 
 # Producer configuration
 producer:
