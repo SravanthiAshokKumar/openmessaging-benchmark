@@ -1,0 +1,36 @@
+Loading net-file from 'sumo/scenario/lust.net.xml'...  done (1441ms).
+Loading additional-files from 'sumo/scenario/vtypes.add.xml'...  done (1ms).
+Loading additional-files from 'sumo/scenario/busstops.add.xml'...  done (6ms).
+Loading additional-files from 'sumo/scenario/e1detectors.add.xml'...  done (106ms).
+Loading additional-files from 'sumo/scenario/lust.poly.xml'...  done (80ms).
+Loading additional-files from 'sumo/scenario/tll.static.xml'...  done (13ms).
+Loading done.
+Simulation started with time: 27000.00
+Warning: Teleporting vehicle '7BEtoFR.213'; collision with '7BEtoLU.205', lane='-30668#4_1', gap=-4.19, time=27294.00 stage=move.
+Warning: Vehicle '7BEtoFR.213' ends teleporting on edge '-30668#4-AddedOffRampEdge', time 27294.00.
+Warning: Teleporting vehicle '7FRtoBE.228'; collision with 'carIn32070:1', lane='-32426#2_1', gap=-9.24, time=27487.00 stage=move.
+Warning: Vehicle '7FRtoBE.228' ends teleporting on edge '-32426#2-AddedOffRampEdge', time 27488.00.
+Warning: Teleporting vehicle '7LUtoBE.215'; collision with 'carIn11925:1', lane='-31622#7_1', gap=-1.60, time=27539.00 stage=move.
+Warning: Vehicle '7LUtoBE.215' ends teleporting on edge '-31622#7-AddedOffRampEdge', time 27539.00.
+Warning: Teleporting vehicle 'carIn11810:1'; collision with 'randUni11609:1', lane='-32798_0', gap=-4.04, time=27630.00 stage=move.
+Warning: Vehicle 'carIn11810:1' ends teleporting on edge '-31876#1', time 27630.00.
+Warning: Teleporting vehicle 'h62590c1:1'; collision with 'carIn17346:1', lane='-31622#7_1', gap=-2.84, time=27652.00 stage=move.
+Warning: Vehicle 'h62590c1:1' ends teleporting on edge '-31622#7-AddedOffRampEdge', time 27653.00.
+Warning: Teleporting vehicle 'carIn8532:1'; collision with 'carIn39099:1', lane='-30668#2_1', gap=-4.33, time=27659.00 stage=move.
+Warning: Vehicle 'carIn8532:1' ends teleporting on edge '-30668#2-AddedOffRampEdge', time 27659.00.
+Warning: Teleporting vehicle '7BEtoFR.263'; collision with 'carIn32641:1', lane='-30668#4_1', gap=-11.37, time=27797.00 stage=move.
+Warning: Vehicle '7BEtoFR.263' ends teleporting on edge '-30668#4-AddedOffRampEdge', time 27797.00.
+Simulation ended at time: 28000.00
+Reason: The final simulation step has been reached.
+Performance: 
+ Duration: 82555ms
+ Real time factor: 12.1131
+ UPS: 31856.725819
+Vehicles: 
+ Inserted: 6567 (Loaded: 7028)
+ Running: 4185
+ Waiting: 405
+Teleports: 7 (Collisions: 7)
+
+DijkstraRouterTT answered 8724 queries and explored 2260.90 edges on average.
+DijkstraRouterTT spent 6610ms answering queries (0.76ms on average).
