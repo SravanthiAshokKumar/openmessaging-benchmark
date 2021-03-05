@@ -36,6 +36,7 @@ def main(input_file, outfile, low_time, high_time):
     count=0
     low_ts = 0
     high_ts = 100000000
+    start_time = low_time
     if low_time and low_time > 0:
         low_ts = low_time
     if high_time and high_time > 0:
@@ -58,6 +59,7 @@ def main(input_file, outfile, low_time, high_time):
             if "<vehicle id" in line:
                 if curr_ts >= low_ts and curr_ts <= high_ts:
                     assert (curr_ts != None)
+                    curr_ts -= low_time
                     lat,lng,vid = parse_vehicle_tag(line)
                     findMinMaxLatLong(lat, lng)
                     batch_str += "%s\t%f\t%f\t%f\n"%(vid, lat, lng, curr_ts)

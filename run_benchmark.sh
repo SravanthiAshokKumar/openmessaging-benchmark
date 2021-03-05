@@ -3,11 +3,11 @@
 copy_config_data()
 {
     broker_ip=$BROKER
+    cp $BENCHMARK_HOME/driver-pulsar/pulsar-temp.yaml /tmp/
+    sed -i "s/BROKER_IP/${broker_ip}/g" /tmp/pulsar-temp.yaml
+
     if [ "X$broker_ip" != "X" ]
     then
-        cp $BENCHMARK_HOME/driver-pulsar/pulsar-temp.yaml /tmp/
-        sed -i "s/BROKER_IP/${broker_ip}/g" /tmp/pulsar-temp.yaml
-        
         i=0
         for client in $CLIENTS
         do
@@ -16,7 +16,7 @@ copy_config_data()
             scp $BENCHMARK_HOME/$DATA_DIR/$filename $client:$BENCHMARK_HOME/locations/$filename
             dirname="$file_beg$i"
             ssh $client "rm -rf $BENCHMARK_HOME/output/$dirname; mkdir $BENCHMARK_HOME/output/$dirname"
-            i+=1
+            i=$((i+1))
         done
         
     fi
@@ -72,7 +72,7 @@ start_benchmark_workers()
         ssh $client "cd $BENCHMARK_HOME; ./bin/benchmark --drivers driver-pulsar/$DRIVER_CONFIG \
             --locations locations/$filename --outputDir output/$dirname \
             workloads/1-topic-16-partitions-1kb.yaml > benchmark.out 2>&1 &"
-        i+=1
+        i=$((i+1))
     done
 }
 
@@ -91,7 +91,7 @@ collect_results()
     do
         dirname="$file_beg$i"        
         scp -r $client:$BENCHMARK_HOME/output/$dirname $BENCHMARK_HOME/output/
-        i+=1
+        i=$((i+1))
     done
 }
 
@@ -103,7 +103,7 @@ DRIVER_CONFIG=$5
 DATA_DIR=$6
 
 file_beg="worker"
-file_end="_data.json"
+file_end="_locations.data"
 workers=""
 
 for client_ip in $CLIENTS
