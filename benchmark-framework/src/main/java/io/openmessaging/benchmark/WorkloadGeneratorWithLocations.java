@@ -121,7 +121,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
             int j = 0;
             while (it.hasNext()) {
                 try {
-                    Thread.sleep(timeToSleep.get(j).longValue());
+                    Thread.sleep(timeToSleep.get(j).longValue()*60);
                     j++;
                 } catch (InterruptedException e) {
                     break;

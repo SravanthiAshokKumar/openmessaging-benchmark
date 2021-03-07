@@ -305,7 +305,8 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         producers.put(producerID,
             new Pair<ScheduledExecutorService, BenchmarkProducer>(
                 scheduledExecutor, producer));
-
+        // ScheduledFuture<Boolean> canceller = scheduledExecutor.schedule(() ->
+        //     promise.cancel(false), 1, TimeUnit.MINUTES);
         log.info("Created producer in {} ms, topic {}", timer.elapsedMillis(), editTopic);
     }
 
