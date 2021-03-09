@@ -14,7 +14,8 @@ def getYaml(workload_config, index_config):
              "producerRate": workload_config['producerRate'],\
              "keyDistributor": "NO_KEY",\
              "consumerBacklogSizeGB": 0,\
-             "testDurationMinutes": 3,\
+             "testDurationMinutes": workload_config['testDurationMinutes'],\
+             "numClients": workload_config['numClients'],\
              "name" : str(workload_config['producersPerTopic']) + ' procucer / ' +
                 str(workload_config['consumerPerSubscription']) + ' on ' + str(workload_config['topics']) +
                 ' topic',\

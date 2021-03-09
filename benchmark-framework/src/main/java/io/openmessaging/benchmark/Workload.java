@@ -44,6 +44,8 @@ public class Workload {
 
     public int producerRate;
 
+    public int numClients;
+    
     public IndexConfig indexConfig;
 
     /**

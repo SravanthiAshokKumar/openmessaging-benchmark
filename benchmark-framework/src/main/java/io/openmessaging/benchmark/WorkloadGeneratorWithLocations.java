@@ -131,7 +131,10 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                 for (int i = 0; i < value.size(); i++) {
                     Triplet<String, Double, Double> tuple = value.get(i);
                     String clientID = tuple.getValue0();
-                    
+                    if (!allConsumerTopics.containsKey(clientID) &&
+                        allConsumerTopics.size() >= workload.numClients) {
+                            continue;
+                    }
                     // get topics based on the location
                     String producerTopic = index.getStringValue(tuple.getValue1(),
                         tuple.getValue2());

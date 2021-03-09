@@ -12,7 +12,7 @@ parse:
   high_time: 30000
 
 split:
-  input_file: ../parsed/locations/static_27000_30000_locations.data
+  input_file: ../parsed/locations/static_47000_50000_locations.data
   output_dir: ../parsed/split/
   num_workers: 5
 
@@ -24,6 +24,8 @@ workload:
   consumerPerSubscription: 1
   producersPerTopic: 1
   producerRate: 50000
+  testDurationMinutes: 5
+  numClients: 10
     
 index_config:
   blockSize: 0.0001
@@ -40,3 +42,8 @@ automation:
   clients: "192.168.124.141 192.168.124.207 192.168.124.95 192.168.124.193 192.168.124.180"
   driver_config: pulsar-temp.yaml
   data_dir: "parsed/split"
+
+graphs:
+  indir: "output"
+  workers: 5
+  outdir: "output/graphs/static_40000_50000"
