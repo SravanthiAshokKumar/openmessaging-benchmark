@@ -172,8 +172,8 @@ public class Benchmark {
 
                     TestResult result = generator.run();
 
-                    String fileName = String.format("%s/C-%s-%s-%s-%s.json", workload.numClients,
-                        arguments.outputDir, workloadName, driverConfiguration.name,
+                    String fileName = String.format("%s/C-%s-%s-%s-%s.json", arguments.outputDir,
+                        workload.numClients, workloadName, driverConfiguration.name,
                         dateFormat.format(new Date()));
 
                     log.info("Writing test result into {}", fileName);
