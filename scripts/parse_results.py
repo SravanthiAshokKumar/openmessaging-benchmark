@@ -1,9 +1,13 @@
 import argparse
 import json
+import matplotlib
+matplotlib.use('agg')
+from matplotlib import pyplot as plt
 import numpy as np
 from os import listdir
 from os.path import join, isfile
 import pandas as pd
+from sortedcontainers import SortedDict
 
 client_info = {}
 def parse_file(filename, full_path):
@@ -19,19 +23,39 @@ def parse_file(filename, full_path):
     s = filename.split('-')
     if s[0] == 'C':
         if s[1] not in client_info.keys():
-            client_info[s[1]] = np.zeroes(7)
-        client_info[s[1]] = client_info + values
-    print(client_info)
+            client_info[s[1]] = np.zeros(8)
+        client_info[s[1]] = np.add(client_info[s[1]], values)
 
-def create_graphs(workers):
-    for k in client_info.keys():
-        temp = client_info[k][:4]/workers
-        client_info[k] = np.append(a, client_info[k][4:])
-        client_info[k] = np.insert(client_info[k], 0, int(k)*workers)
-    df = pd.DataFrame(client_info.values(), columns = ['total_client', 'pub_rate',
-        'cons_rate', 'pub_latency', 'cons_latency', 'msg_sent', 'msg_received'])
-    print(df)
+def plot_graphs(legends, data, l_range, h_range, outdir, outfile, x, x_labels):
+    fig, ax = plt.subplots()
+    for i in range(l_range, h_range):
+        y = data[:,i]
+        ax.plot(x, y)
+    ax.legend(legends)
+    ax.set_xlabel("#clients")
+    ax.set_ylabel("time (ms)")
+    ax.xaxis.set_ticks(x)
+    ax.xaxis.set_ticklabels(x_labels)
+    fig.savefig(join(outdir, outfile))
 
+
+def create_graphs(outdir, workers):
+    client_info_s = SortedDict(client_info)
+    for k in client_info_s.keys():
+        temp = client_info_s[k][:4]/workers 
+        client_info_s[k] = np.append(temp, client_info_s[k][4:])
+    
+    # legends = ['pub_rate', 'cons_rate', 'pub_latency', 'cons_latency', 'sub_change_latency',
+    #     'msg_sent', 'msg_received', 'total_clients']
+    x = list(range(len(client_info_s.keys())))
+    data = np.array(list(client_info_s.values()))
+    plot_graphs(['pub_latency', 'cons_latency'], data, 2, 4, outdir, 'latency.png', x,
+        client_info_s.keys())
+    plot_graphs(['pub_rate'], data, 0, 1, outdir, 'pub_throughput.png', x,
+        client_info_s.keys())
+    plot_graphs(['cons_rate'], data, 1, 2, outdir, 'cons_throughput.png', x,
+        client_info_s.keys())
+    
 def parse_results(indir, outdir, workers):
     files = list()
     for i in range(workers):
@@ -44,7 +68,7 @@ def parse_results(indir, outdir, workers):
         for f in files[i]:
             dir = join(indir, 'worker'+str(i))
             parse_file(f, join(dir, f))
-    create_graphs(workers)    
+    create_graphs(outdir, workers)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

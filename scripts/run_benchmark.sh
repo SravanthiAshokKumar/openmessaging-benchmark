@@ -125,6 +125,6 @@ start_cluster $BROKER $PULSAR_HOME
 copy_config_data
 start_benchmark_workers
 
-sleep 5m
+sleep 17m
 
 collect_results

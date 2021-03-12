@@ -58,6 +58,25 @@ def main(numClients, iterations, minX, minY, maxX, maxY, outputFilename):
     plt.scatter(xAdjusted, yAdjusted)
     plt.savefig(outputFilename+".png")
 
+def generate_lat_long(numClients, iterations, X1, Y1, X2, Y2,
+    outfile, start_time):
+    clientID = 'car_'
+    with open(outfile, 'a+') as of:
+        for i in range(iterations):
+            for c in range(numClients):
+                of.writelines("{} {} {} {}\n".format(clientID+str(c), X1, Y1, start_time))
+                of.writelines("{} {} {} {}\n".format(clientID+str(c+numClients), X2, Y2,\
+                    start_time))
+            start_time += 1
+
+def generate_static_data(numClients, iterations, minX, minY, maxX, maxY, outfile):
+    constant_x = (maxX - minX)/4.0
+    constant_y = (maxY - minY)/4.0
+    x_coords = []
+    y_coords = []
+    generate_lat_long(math.ceil(numClients/2), iterations, minX+constant_x,
+        minY+constant_y, maxX-constant_x, maxY-constant_y, outfile, 1)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--numClients", help="number of clients")
@@ -70,5 +89,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main(int(args.numClients), int(args.iterations), float(args.minX), float(args.minY),
+    generate_static_data(int(args.numClients), int(args.iterations), float(args.minX), float(args.minY),
          float(args.maxX), float(args.maxY), args.outputFilename)
