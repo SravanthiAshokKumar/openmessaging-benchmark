@@ -28,7 +28,7 @@ client:
   connectionsPerBroker: 1
   clusterName: local
   cluster: local
-  namespacePrefix: benchmark/ns
+  namespacePrefix: benchmark/ns-random
   topicType: non_persistent
  # persistence:
  #   ensembleSize: 1 
