@@ -151,6 +151,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                     }
 
                     consumerTopics.add(producerTopic);
+                    log.warn("Size : {}", consumerTopics.size());
                     if (allConsumerTopics.containsKey(clientID)) {
                         allConsumerTopics.get(clientID).add(consumerTopics);
                         allProducerTopics.get(clientID).add(producerTopic);

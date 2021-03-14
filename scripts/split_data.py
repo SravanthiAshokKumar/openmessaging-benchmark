@@ -4,7 +4,7 @@ import os
 clientToWorker = {}
 workerTables = []
 
-def main(infile, outdir, workers):
+def split_to_files(infile, outdir, workers):
     for i in range(workers):
         workerTables.append([])
     
@@ -38,4 +38,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main(args.infile, args.outdir, int(args.workers))
+    split_to_files(args.infile, args.outdir, int(args.workers))
