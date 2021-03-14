@@ -44,11 +44,11 @@ def create_graphs(outdir, workers):
     for k in client_info_s.keys():
         temp = client_info_s[k][:4]/workers 
         client_info_s[k] = np.append(temp, client_info_s[k][4:])
-    
     # legends = ['pub_rate', 'cons_rate', 'pub_latency', 'cons_latency', 'sub_change_latency',
     #     'msg_sent', 'msg_received', 'total_clients']
     x = list(range(len(client_info_s.keys())))
     data = np.array(list(client_info_s.values()))
+    print(data)
     plot_graphs(['pub_latency', 'cons_latency'], data, 2, 4, outdir, 'latency.png', x,
         client_info_s.keys())
     plot_graphs(['pub_rate'], data, 0, 1, outdir, 'pub_throughput.png', x,

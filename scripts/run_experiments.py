@@ -1,4 +1,5 @@
 import create_workloads as cw
+import generate_static_workload as gsw
 import os
 import parse_fcd_output as pfo
 import split_data as sd
@@ -28,14 +29,21 @@ def main(configFile):
     workload = read_config['workload']
     index_config = read_config['index_config']
     
-    # parse = read_config['parse']
-    # files, filename = find_files(parse['fcd_output'])
+    # parse_sumo = read_config['parse_sumo']
+    # files, filename = find_files(parse_sumo['fcd_output'])
     # if filename not in files:
     #     index_config['minLat'], index_config['minLng'], index_config['maxLat'], index_config['maxLng'] =\
-    #         pfo.main(parse['fcd_output'], parse['ouput_dir'], parse['low_time'], parse['high_time'])
+    #         pfo.main(parse_sumo['fcd_output'], parse_sumo['ouput_dir'], parse_sumo['low_time'], parse_sumo['high_time'])
 
+    static_load = read_config['static_load']
+    gsw.generate_static_data(static_load['numClients'], static_load['iterations'],
+        static_load['minX'], static_load['minY'], static_load['maxX'], static_load['maxY'],
+        static_load['outfile'])
+
+    index_config['minLat'], index_config['minLng'], index_config['maxLat'], index_config['maxLng'] =\
+        static_load['minX'], static_load['minY'], static_load['maxX'], static_load['maxY']
     split = read_config['split']
-    sd.main(split['input_file'], split['output_dir'], split['num_workers'])
+    sd.split_to_files(split['input_file'], split['output_dir'], split['num_workers'])
 
     # payloadSizes = ['1Kb', '2Kb', '4Kb']
     # messageSizes = [1024, 2048, 4096]
@@ -43,7 +51,7 @@ def main(configFile):
     payloadSizes = ['1Kb']
     messageSizes = [1024]
     partitionsPerTopic = [1]
-    numClients = [10]
+    numClients = [2]
 
     for pi in range(len(payloadSizes)):
         workload['payloadFile'] = payloadSizes[pi]
