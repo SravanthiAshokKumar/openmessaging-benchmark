@@ -195,14 +195,22 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
         TestResult result = printAndCollectStats(workload.testDurationMinutes, TimeUnit.MINUTES);
         runCompleted = true;
 
-        worker.stopAll();
+        try {
+            worker.stopAll();
+        } catch (RuntimeException e) {
+            log.error("Exception ocurred: ", e.getMessage());
+        }
         executor.shutdownNow();
         return result;
     }
 
     @Override
     public void close() throws Exception {
-        worker.stopAll();
+        try {
+            worker.stopAll();
+        } catch (RuntimeException e) {
+            log.error("Exception ocurred: ", e.getMessage());
+        }
         consumerToSubName.clear();
     }
 

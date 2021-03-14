@@ -43,6 +43,7 @@ start_cluster()
     $pulsar_home/bin/pulsar-daemon start broker
     sleep 5
 
+    $pulsar_home/bin/pulsar-admin tenants create benchmark
     $pulsar_home/bin/pulsar-admin namespaces create benchmark/ns-namespace
     sleep 5
 
@@ -64,9 +65,6 @@ stop_cluster()
     $pulsar_home/bin/pulsar-daemon stop broker
 
     rm -rf $pulsar_home/data
-
-    $pulsar_home/bin/pulsar-admin namespaces delete benchmark/ns-namespace
-    sleep 5
 }
 
 start_benchmark_workers()

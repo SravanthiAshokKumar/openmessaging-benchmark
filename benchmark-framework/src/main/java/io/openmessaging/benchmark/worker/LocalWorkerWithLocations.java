@@ -301,12 +301,10 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         BenchmarkProducer producer = future.join();
 
         ProducerTask producerTask = new ProducerTask(producer, producerID, editTopic, payloadData);
-        scheduledExecutor.scheduleAtFixedRate(producerTask, 0, 2, TimeUnit.SECONDS);
+        scheduledExecutor.scheduleAtFixedRate(producerTask, 0, 5, TimeUnit.SECONDS);
         producers.put(producerID,
             new Pair<ScheduledExecutorService, BenchmarkProducer>(
                 scheduledExecutor, producer));
-        // ScheduledFuture<Boolean> canceller = scheduledExecutor.schedule(() ->
-        //     promise.cancel(false), 1, TimeUnit.MINUTES);
         log.info("Created producer in {} ms, topic {}", timer.elapsedMillis(), editTopic);
     }
 
