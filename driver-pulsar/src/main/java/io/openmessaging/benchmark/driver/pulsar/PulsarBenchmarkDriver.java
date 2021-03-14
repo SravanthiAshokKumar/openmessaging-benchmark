@@ -128,41 +128,48 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
                         .blockIfQueueFull(config.producer.blockIfQueueFull)
                         .maxPendingMessages(config.producer.pendingQueueSize);
 
-        try {
-            // Create namespace and set the configuration
-            String tenant = config.client.namespacePrefix.split("/")[0];
-            String cluster = config.client.clusterName;
-            if (!adminClient.tenants().getTenants().contains(tenant)) {
-                try {
-                    adminClient.tenants().createTenant(tenant,
-                                    new TenantInfo(Collections.emptySet(), Sets.newHashSet(cluster)));
-                } catch (ConflictException e) {
-                    // Ignore. This can happen when multiple workers are initializing at the same time
+        while (true){
+            try {
+                // Create namespace and set the configuration
+                String tenant = config.client.namespacePrefix.split("/")[0];
+                String cluster = config.client.clusterName;
+                if (!adminClient.tenants().getTenants().contains(tenant)) {
+                    try {
+                        adminClient.tenants().createTenant(tenant,
+                                        new TenantInfo(Collections.emptySet(), Sets.newHashSet(cluster)));
+                    } catch (ConflictException e) {
+                        // Ignore. This can happen when multiple workers are initializing at the same time
+                    }
                 }
+                log.info("Created Pulsar tenant {} with allowed cluster {}", tenant, cluster);
+
+                this.namespace = config.client.namespacePrefix;
+                if (config.client.createNamespace) {
+                    this.namespace = config.client.namespacePrefix + "-" + getRandomString();
+                    adminClient.namespaces().createNamespace(namespace);
+                    config.client.createNamespace = false;
+                    log.info("Created Pulsar namespace {}", namespace);
+                }
+
+                PersistenceConfiguration p = config.client.persistence;
+                adminClient.namespaces().setPersistence(namespace,
+                                new PersistencePolicies(p.ensembleSize, p.writeQuorum, p.ackQuorum, 1.0));
+
+                adminClient.namespaces().setBacklogQuota(namespace,
+                                new BacklogQuota(Long.MAX_VALUE, RetentionPolicy.producer_exception));
+                adminClient.namespaces().setDeduplicationStatus(namespace, p.deduplicationEnabled);
+                log.info("Applied persistence configuration for namespace {}/{}/{}: {}", tenant, cluster, namespace,
+                                writer.writeValueAsString(p));
+
+            } catch(ConflictException e) {
+                log.warn("ConflictException occured: {} ", e.getMessage());
+                continue;
+            } catch (PulsarAdminException e) {
+                throw new IOException(e);
             }
-            log.info("Created Pulsar tenant {} with allowed cluster {}", tenant, cluster);
-
-            this.namespace = config.client.namespacePrefix;
-            if (config.client.createNamespace) {
-                this.namespace = config.client.namespacePrefix + "-" + getRandomString();
-                adminClient.namespaces().createNamespace(namespace);
-                log.info("Created Pulsar namespace {}", namespace);
-            }
-
-            PersistenceConfiguration p = config.client.persistence;
-            adminClient.namespaces().setPersistence(namespace,
-                            new PersistencePolicies(p.ensembleSize, p.writeQuorum, p.ackQuorum, 1.0));
-
-            adminClient.namespaces().setBacklogQuota(namespace,
-                            new BacklogQuota(Long.MAX_VALUE, RetentionPolicy.producer_exception));
-            adminClient.namespaces().setDeduplicationStatus(namespace, p.deduplicationEnabled);
-            log.info("Applied persistence configuration for namespace {}/{}/{}: {}", tenant, cluster, namespace,
-                            writer.writeValueAsString(p));
-
-        } catch (PulsarAdminException e) {
-            throw new IOException(e);
+            isConnected.set(true);
+            break;
         }
-        isConnected.set(true);
     }
 
     @Override
