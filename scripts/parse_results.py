@@ -7,9 +7,10 @@ import numpy as np
 from os import listdir
 from os.path import join, isfile
 import pandas as pd
+import seaborn as sns
 from sortedcontainers import SortedDict
 
-client_info = {}
+client_info = []
 def parse_file(filename, full_path):
     f = open(join(full_path))
     data = json.load(f)
@@ -18,13 +19,15 @@ def parse_file(filename, full_path):
             data['aggregatedPublishLatency95pct'], data['aggregatedEndToEndLatency95pct'],
             data['aggregatedsubscriptionChangeLatency95pct'], data['messagesSent'],
             data['messagesReceived'], len(data['allProducerTopics'].keys())]
-    values = np.array(values, dtype='float')
+    # values = np.array(values, dtype='float')
 
-    s = filename.split('-')
+    s = filename.split('_')
     if s[0] == 'C':
-        if s[1] not in client_info.keys():
-            client_info[s[1]] = np.zeros(8)
-        client_info[s[1]] = np.add(client_info[s[1]], values)
+        if s[2] == 'I':
+            values.insert(0, s[3])
+            values.insert(0, s[1])
+    
+    client_info.append(values)
 
 def plot_graphs(legends, data, l_range, h_range, outdir, outfile, x, x_labels):
     fig, ax = plt.subplots()
@@ -38,37 +41,64 @@ def plot_graphs(legends, data, l_range, h_range, outdir, outfile, x, x_labels):
     ax.xaxis.set_ticklabels(x_labels)
     fig.savefig(join(outdir, outfile))
 
+def create_graphs(outdir, workers, df):
+    columns = ['pub_rate', 'cons_rate', 'pub_latency', 'cons_latency']
+    for col in columns:
+        df_col = df[[col]].unstack()
+        df_col.plot(kind='line')
+        plt.savefig(outdir+'/'+col+'.png')
 
-def create_graphs(outdir, workers):
+def create_graphs_1(outdir, workers):
     client_info_s = SortedDict(client_info)
+    iters = []
     for k in client_info_s.keys():
-        temp = client_info_s[k][:4]/workers 
-        client_info_s[k] = np.append(temp, client_info_s[k][4:])
+        iters = client_info_s[k].keys()
+        for i in client_info_s[k].keys():
+            temp = client_info_s[k][i][:4]/workers 
+            client_info_s[k][i] = np.append(temp, client_info_s[k][i][4:])
+
     # legends = ['pub_rate', 'cons_rate', 'pub_latency', 'cons_latency', 'sub_change_latency',
     #     'msg_sent', 'msg_received', 'total_clients']
-    x = list(range(len(client_info_s.keys())))
-    data = np.array(list(client_info_s.values()))
-    print(data)
-    plot_graphs(['pub_latency', 'cons_latency'], data, 2, 4, outdir, 'latency.png', x,
-        client_info_s.keys())
-    plot_graphs(['pub_rate'], data, 0, 1, outdir, 'pub_throughput.png', x,
-        client_info_s.keys())
-    plot_graphs(['cons_rate'], data, 1, 2, outdir, 'cons_throughput.png', x,
-        client_info_s.keys())
+    data = {}
+    iter_data = {}
+    for k in client_info_s.keys():
+        data[k] = np.array(list(client_info_s[k].values()))
+        print(data[k])
+        plot_graphs(['pub_latency', 'cons_latency'], data[k], 2, 4, outdir, 'latency_{}.png'.format(k),
+            list(range(len(iters))), iters)
+        for i in iter:
+            iter_data
+    
+    # iter_data = {}
+    # for i in iters:
+        
+    #     plot_graphs(['pub_latency', 'cons_latency'], , 2, 4, outdir, 'latency_{}.png'.format(k),
+    #         list(range(len(iters))), iters)
+
+    # plot_graphs(['pub_rate'], data, 0, 1, outdir, 'pub_throughput.png', x,
+    #     client_info_s.keys())
+    # plot_graphs(['cons_rate'], data, 1, 2, outdir, 'cons_throughput.png', x,
+    #     client_info_s.keys())
     
 def parse_results(indir, outdir, workers):
     files = list()
     for i in range(workers):
-        dir = join(indir, 'worker'+str(i))
         files.append([])
-        for x in listdir(dir):
-            if isfile(join(dir, x)) and x.endswith(".json"):
+        for x in listdir(indir):
+            if isfile(join(indir, x)) and x.endswith(".json"):
                 files[i].append(x)
     for i in range(len(files)):
         for f in files[i]:
-            dir = join(indir, 'worker'+str(i))
-            parse_file(f, join(dir, f))
-    create_graphs(outdir, workers)
+            parse_file(f, join(indir, f))
+    
+    df = pd.DataFrame(client_info, columns = ['num_clients', 'iterations', 'pub_rate', 'cons_rate',
+        'pub_latency', 'cons_latency', 'sub_change_latency', 'msg_sent', 'msg_received',
+        'total_clients'])
+    df = df.groupby(['num_clients', 'iterations']).agg({'pub_rate': np.mean, 'cons_rate': np.mean,
+        'pub_latency': np.mean, 'cons_latency': np.mean, 'sub_change_latency': np.mean,
+        'msg_sent': np.sum, 'msg_received': np.sum, 'total_clients': np.sum})
+    
+    create_graphs(outdir, workers, df)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

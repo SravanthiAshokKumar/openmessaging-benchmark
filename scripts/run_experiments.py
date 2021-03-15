@@ -36,35 +36,38 @@ def main(configFile):
     #         pfo.main(parse_sumo['fcd_output'], parse_sumo['ouput_dir'], parse_sumo['low_time'], parse_sumo['high_time'])
 
     static_load = read_config['static_load']
-    gsw.generate_static_data(static_load['numClients'], static_load['iterations'],
-        static_load['minX'], static_load['minY'], static_load['maxX'], static_load['maxY'],
-        static_load['outfile'])
-
     index_config['minLat'], index_config['minLng'], index_config['maxLat'], index_config['maxLng'] =\
         static_load['minX'], static_load['minY'], static_load['maxX'], static_load['maxY']
-    split = read_config['split']
-    sd.split_to_files(split['input_file'], split['output_dir'], split['num_workers'])
+    numClients = [10, 20, 50]
+    iterations = [100]
+    outfile_prefix = '/home/surveillance/openmessaging-benchmark/parsed/locations/static_locations_c_'
 
-    # payloadSizes = ['1Kb', '2Kb', '4Kb']
-    # messageSizes = [1024, 2048, 4096]
-    # partitionsPerTopic = [1, 8, 16]
-    payloadSizes = ['1Kb']
-    messageSizes = [1024]
-    partitionsPerTopic = [1]
-    numClients = [2]
+    for c in numClients:
+        for i in iterations:
+            workload['numClients'] = c
+            outfile = outfile_prefix + str(c) + '_i_' + str(i)
+            gsw.generate_static_data(c, i, static_load['minX'], static_load['minY'],
+                static_load['maxX'], static_load['maxY'], outfile)
+            split = read_config['split']
+            sd.split_to_files(outfile, split['output_dir'], split['num_workers'])
 
-    for pi in range(len(payloadSizes)):
-        workload['payloadFile'] = payloadSizes[pi]
-        workload['messageSize'] = messageSizes[pi]
-        for pt in partitionsPerTopic:
-            for c in numClients:
-                workload['partitionsPerTopic'] = pt
-                workload['numClients'] = c
-                workload_filename = cw.generateYamlFiles(workload, index_config)
-                automation = read_config['automation']
-                os.system('bash run_benchmark.sh {} {} {} {} {} {} {}'.format(automation['benchmark_home'],
-                    automation['pulsar_home'], automation['broker'], "\"{}\"".format(automation['clients']),
-                    automation['driver_config'], automation['data_dir'], workload_filename))
+            # payloadSizes = ['1Kb', '2Kb', '4Kb']
+            # messageSizes = [1024, 2048, 4096]
+            # partitionsPerTopic = [1, 8, 16]
+            payloadSizes = ['1Kb']
+            messageSizes = [1024]
+            partitionsPerTopic = [1]
+
+            for pi in range(len(payloadSizes)):
+                workload['payloadFile'] = payloadSizes[pi]
+                workload['messageSize'] = messageSizes[pi]
+                for pt in partitionsPerTopic:
+                    workload['partitionsPerTopic'] = pt
+                    workload_filename = cw.generateYamlFiles(workload, index_config)
+                    automation = read_config['automation']
+                    os.system('bash run_benchmark.sh {} {} {} {} {} {} {} {} {}'.format(automation['benchmark_home'],
+                        automation['pulsar_home'], automation['broker'], "\"{}\"".format(automation['clients']),
+                        automation['driver_config'], automation['data_dir'], workload_filename, c, i))
     
 if __name__ == '__main__':
     main(sys.argv[1])

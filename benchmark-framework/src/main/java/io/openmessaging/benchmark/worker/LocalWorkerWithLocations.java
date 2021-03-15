@@ -301,7 +301,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         BenchmarkProducer producer = future.join();
 
         ProducerTask producerTask = new ProducerTask(producer, producerID, editTopic, payloadData);
-        scheduledExecutor.scheduleAtFixedRate(producerTask, 0, 5, TimeUnit.SECONDS);
+        scheduledExecutor.scheduleAtFixedRate(producerTask, 0, 100, TimeUnit.MILLISECONDS);
         producers.put(producerID,
             new Pair<ScheduledExecutorService, BenchmarkProducer>(
                 scheduledExecutor, producer));

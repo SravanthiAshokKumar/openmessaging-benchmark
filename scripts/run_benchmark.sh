@@ -95,8 +95,9 @@ collect_results()
     i=0
     for client in $CLIENTS
     do
-        dirname="$file_beg$i"        
-        scp -r $client:$BENCHMARK_HOME/output/$dirname $BENCHMARK_HOME/output/
+        dirname="$file_beg$i"
+        filename=C_$NUM_CLIENTS"_I_"$ITER"_"$dirname.json
+        scp -r $client:$BENCHMARK_HOME/output/$dirname/*.json $BENCHMARK_HOME/output/output_static_locations/$filename
         i=$((i+1))
     done
 }
@@ -108,6 +109,8 @@ CLIENTS=$4
 DRIVER_CONFIG=$5
 DATA_DIR=$6
 WORKLOAD_FILENAME=$7
+NUM_CLIENTS=$8
+ITER=$9
 
 file_beg="worker"
 file_end="_locations.data"
