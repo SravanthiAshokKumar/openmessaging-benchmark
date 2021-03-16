@@ -129,6 +129,11 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                 // The triple consists of the ClientID, latitude and longitude of the vehicle
                 List<Triplet<String, Double, Double>> value = it.next().getValue();
                 for (int i = 0; i < value.size(); i++) {
+                    try {
+                        Thread.sleep(500);
+                    } catch (InterruptedException e) {
+                        break;
+                    }
                     Triplet<String, Double, Double> tuple = value.get(i);
                     String clientID = tuple.getValue0();
                     if (!allConsumerTopics.containsKey(clientID) &&
