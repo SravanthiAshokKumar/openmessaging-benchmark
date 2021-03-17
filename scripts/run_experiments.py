@@ -38,19 +38,20 @@ def main(configFile):
     static_load = read_config['static_load']
     index_config['minLat'], index_config['minLng'], index_config['maxLat'], index_config['maxLng'] =\
         static_load['minX'], static_load['minY'], static_load['maxX'], static_load['maxY']
-    numClients = [10, 20, 50]
-    iterations = [100]
+    numClients = [50, 100, 200, 300]
+    iterations = [1, 2, 3]
     outfile_prefix = '/home/surveillance/openmessaging-benchmark/parsed/locations/static_locations_c_'
 
     for c in numClients:
-        for i in iterations:
-            workload['numClients'] = c
-            outfile = outfile_prefix + str(c) + '_i_' + str(i)
-            gsw.generate_static_data(c, i, static_load['minX'], static_load['minY'],
+        outfile = outfile_prefix + str(c) + '.data'
+        if not os.path.exists(outfile):
+            gsw.generate_more_pockets(c, 1, static_load['minX'], static_load['minY'],
                 static_load['maxX'], static_load['maxY'], outfile)
             split = read_config['split']
             sd.split_to_files(outfile, split['output_dir'], split['num_workers'])
 
+        for i in iterations:
+            workload['numClients'] = c
             # payloadSizes = ['1Kb', '2Kb', '4Kb']
             # messageSizes = [1024, 2048, 4096]
             # partitionsPerTopic = [1, 8, 16]

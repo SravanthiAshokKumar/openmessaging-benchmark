@@ -24,8 +24,8 @@ def parse_file(filename, full_path):
     s = filename.split('_')
     if s[0] == 'C':
         if s[2] == 'I':
-            values.insert(0, s[3])
-            values.insert(0, s[1])
+            values.insert(0, int(s[3]))
+            values.insert(0, int(s[1]))
     
     client_info.append(values)
 
@@ -66,20 +66,7 @@ def create_graphs_1(outdir, workers):
         print(data[k])
         plot_graphs(['pub_latency', 'cons_latency'], data[k], 2, 4, outdir, 'latency_{}.png'.format(k),
             list(range(len(iters))), iters)
-        for i in iter:
-            iter_data
-    
-    # iter_data = {}
-    # for i in iters:
-        
-    #     plot_graphs(['pub_latency', 'cons_latency'], , 2, 4, outdir, 'latency_{}.png'.format(k),
-    #         list(range(len(iters))), iters)
 
-    # plot_graphs(['pub_rate'], data, 0, 1, outdir, 'pub_throughput.png', x,
-    #     client_info_s.keys())
-    # plot_graphs(['cons_rate'], data, 1, 2, outdir, 'cons_throughput.png', x,
-    #     client_info_s.keys())
-    
 def parse_results(indir, outdir, workers):
     files = list()
     for i in range(workers):
@@ -94,6 +81,8 @@ def parse_results(indir, outdir, workers):
     df = pd.DataFrame(client_info, columns = ['num_clients', 'iterations', 'pub_rate', 'cons_rate',
         'pub_latency', 'cons_latency', 'sub_change_latency', 'msg_sent', 'msg_received',
         'total_clients'])
+    df = df.sort_values('num_clients')
+    # print(df)
     df = df.groupby(['num_clients', 'iterations']).agg({'pub_rate': np.mean, 'cons_rate': np.mean,
         'pub_latency': np.mean, 'cons_latency': np.mean, 'sub_change_latency': np.mean,
         'msg_sent': np.sum, 'msg_received': np.sum, 'total_clients': np.sum})

@@ -96,8 +96,10 @@ collect_results()
     for client in $CLIENTS
     do
         dirname="$file_beg$i"
-        filename=C_$NUM_CLIENTS"_I_"$ITER"_"$dirname.json
-        scp -r $client:$BENCHMARK_HOME/output/$dirname/*.json $BENCHMARK_HOME/output/output_static_locations/$filename
+        json_filename=C_$NUM_CLIENTS"_I_"$ITER"_"$dirname.json
+        out_filename=C_$NUM_CLIENTS"_I_"$ITER"_"$dirname.out
+        scp -r $client:$BENCHMARK_HOME/output/$dirname/*.json $BENCHMARK_HOME/output/output_static_locations/$json_filename
+        scp -r $client:$BENCHMARK_HOME/benchmark.out $BENCHMARK_HOME/output/output_static_locations/$out_filename
         i=$((i+1))
     done
 }

@@ -16,7 +16,7 @@ def placePointsInGrid(h, w, n, minX, minY):
     for i in range(nx):
         xCoords.append(minX + i*diff)
     for j in range(ny):
-        yCoords.append(minY + i*diff)
+        yCoords.append(minY + j*diff)
 
     return xCoords, yCoords
 
@@ -57,9 +57,28 @@ def main(numClients, iterations, minX, minY, maxX, maxY, outputFilename):
     generateLocationsData(xAdjusted, yAdjusted, outputFilename, clients, iterations)
     plt.scatter(xAdjusted, yAdjusted)
     plt.savefig(outputFilename+".png")
+    
+def generate_more_pockets(numClients, iterations, minX, minY, maxX, maxY, outfile):
+    h = maxY - minY
+    w = maxX - minX
+    xCoords, yCoords = placePointsInGrid(h, w, float(numClients/4), minX, minY)
+    print(xCoords, yCoords)
+    clientID = 'car_'
+    mod = math.floor(numClients/4)
+    time = 1.0
+    with open(outfile, 'a+') as of:
+        for i in range(iterations):
+            c = 0
+            while c < numClients:
+                for x in xCoords:
+                    for y in yCoords:
+                        of.writelines("{} {} {} {}\n".format(clientID+str(c), x,
+                            y, time))
+                        c += 1
+            time += 1
 
-def generate_lat_long(numClients, iterations, X1, Y1, X2, Y2,
-    outfile, start_time):
+
+def generate_lat_long(numClients, iterations, X1, Y1, X2, Y2, outfile, start_time):
     clientID = 'car_'
     with open(outfile, 'a+') as of:
         for i in range(iterations):
@@ -72,8 +91,6 @@ def generate_lat_long(numClients, iterations, X1, Y1, X2, Y2,
 def generate_static_data(numClients, iterations, minX, minY, maxX, maxY, outfile):
     constant_x = (maxX - minX)/4.0
     constant_y = (maxY - minY)/4.0
-    x_coords = []
-    y_coords = []
     generate_lat_long(math.ceil(numClients/2), iterations, minX+constant_x,
         minY+constant_y, maxX-constant_x, maxY-constant_y, outfile, 1)
 
@@ -89,5 +106,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    generate_static_data(int(args.numClients), int(args.iterations), float(args.minX), float(args.minY),
-         float(args.maxX), float(args.maxY), args.outputFilename)
+    # generate_static_data(int(args.numClients), int(args.iterations), float(args.minX), float(args.minY),
+    #      float(args.maxX), float(args.maxY), args.outputFilename)
+    generate_more_pockets(int(args.numClients), int(args.iterations), float(args.minX), 
+        float(args.minY), float(args.maxX), float(args.maxY), args.outputFilename)
