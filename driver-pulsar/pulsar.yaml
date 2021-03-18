@@ -22,18 +22,19 @@ driverClass: io.openmessaging.benchmark.driver.pulsar.PulsarBenchmarkDriver
 
 # Pulsar client-specific configuration
 client:
-  serviceUrl: pulsar://localhost:6650
-  httpUrl: http://localhost:8080
+  serviceUrl: pulsar://192.168.124.174:6650
+  httpUrl: http://192.168.124.174:8080
   ioThreads: 8
   connectionsPerBroker: 8
   clusterName: local
-  namespacePrefix: benchmark/ns
-  topicType: persistent
-  persistence:
-    ensembleSize: 3
-    writeQuorum: 3
-    ackQuorum: 2
-    deduplicationEnabled: false
+  namespacePrefix: benchmark/ns-namespace
+  topicType: non_persistent
+  createNamespace: true
+  # persistence:
+  #   ensembleSize: 3
+  #   writeQuorum: 3
+  #   ackQuorum: 2
+  #   deduplicationEnabled: false
   tlsAllowInsecureConnection: false
   tlsEnableHostnameVerification: false
   tlsTrustCertsFilePath:
