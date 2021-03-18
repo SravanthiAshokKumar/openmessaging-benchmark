@@ -114,7 +114,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
         
         byte[] payloadData = payloadReader.load(workload.payloadFile);
 
-        Runnable readInput = () -> {
+        // Runnable readInput = () -> {
             Iterator<Entry<Double, List<Triplet<String, Double, Double>>>> it = 
                 timeToTuple.entrySet().iterator();
             Double keyToRemove = null;
@@ -184,10 +184,10 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                 }
                 it.remove();
             }
-        };
+        // };
 
-        ExecutorService executor = Executors.newCachedThreadPool();
-        executor.execute(readInput);
+        // ExecutorService executor = Executors.newCachedThreadPool();
+        // executor.execute(readInput);
 
 
         log.info("----- Starting warm-up traffic ------");
@@ -205,7 +205,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
         } catch (RuntimeException e) {
             log.error("Exception ocurred: ", e.getMessage());
         }
-        executor.shutdownNow();
+        // executor.shutdownNow();
         return result;
     }
 
