@@ -19,14 +19,14 @@
 
 name: 1 topic / 1 partition / 1Kb
 
-topics: 1
+topics: 10
 partitionsPerTopic: 1
 keyDistributor: "NO_KEY"
 messageSize: 1024
 payloadFile: "payload/payload-1Kb.data"
-subscriptionsPerTopic: 1
+subscriptionsPerTopic: 4
 consumerPerSubscription: 1
-producersPerTopic: 1
-producerRate: 50000
+producersPerTopic: 4
+producerRate: 400
 consumerBacklogSizeGB: 0
-testDurationMinutes: 15
+testDurationMinutes: 3
