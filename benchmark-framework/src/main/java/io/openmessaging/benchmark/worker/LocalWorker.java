@@ -214,7 +214,12 @@ public class LocalWorker implements Worker, ConsumerCallback {
             try {
                 while (!testCompleted) {
                     producers.forEach(producer -> {
-                        rateLimiter.acquire();
+                        // rateLimiter.acquire();
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
                         final long sendTime = System.nanoTime();
                         producer.sendAsync(Optional.ofNullable(keyDistributor.next()), payloadData)
                                 .thenRun(() -> {
