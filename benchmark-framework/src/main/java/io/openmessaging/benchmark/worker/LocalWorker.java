@@ -216,7 +216,7 @@ public class LocalWorker implements Worker, ConsumerCallback {
                     producers.forEach(producer -> {
                         // rateLimiter.acquire();
                         try {
-                            Thread.sleep(1000);
+                            Thread.sleep(100);
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
