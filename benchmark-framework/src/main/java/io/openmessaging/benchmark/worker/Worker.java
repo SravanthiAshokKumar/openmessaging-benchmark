@@ -53,6 +53,8 @@ public interface Worker extends AutoCloseable {
 
     void resumeConsumers() throws IOException;
 
+    void setPublishRate(int publishRate);
+
     CountersStats getCountersStats() throws IOException;
 
     PeriodStats getPeriodStats() throws IOException;

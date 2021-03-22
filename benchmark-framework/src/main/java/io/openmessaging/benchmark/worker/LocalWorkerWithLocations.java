@@ -44,6 +44,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.base.Preconditions;
+import com.google.common.util.concurrent.RateLimiter;   
 
 import org.apache.bookkeeper.stats.Counter;
 import org.apache.bookkeeper.stats.NullStatsLogger;
@@ -59,8 +60,8 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
     private BenchmarkDriver benchmarkDriver = null;
 
     // producer map contains the mapping of ProducerID to pairOf (ProducerTask executor, Producer)
-    private Map<String, Pair<ScheduledExecutorService, BenchmarkProducer>> producers =
-        new ConcurrentHashMap<String, Pair<ScheduledExecutorService, BenchmarkProducer>>();
+    private Map<String, Pair<ExecutorService, BenchmarkProducer>> producers =
+        new ConcurrentHashMap<String, Pair<ExecutorService, BenchmarkProducer>>();
     // consumer map contains the mapping of SubscriptionName to a map containing
     // TopicName to Consumer mapping
     private Map<String, Map<String, BenchmarkConsumer>> consumers = new ConcurrentHashMap<>();
@@ -111,6 +112,9 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
     private boolean consumersArePaused = false;
 
     private ConsumerAssignment consumerAssignment;
+
+    private int publishRate;
+    private boolean done = false;
 
     class SubscriptionChangeTask implements Runnable {
         private List<String> topics;
@@ -179,6 +183,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         private String topic;
         private byte[] payloadData;
         private KeyDistributor keyDistributor;
+        private RateLimiter rateLimiter = RateLimiter.create(1.0);
 
         public ProducerTask(BenchmarkProducer producer, String producerID, String topic, byte[] payloadData) {
             this.producer = producer;
@@ -186,13 +191,17 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
             this.topic = topic;
             this.payloadData = payloadData;
             this.keyDistributor = KeyDistributor.build(KeyDistributorType.NO_KEY);
+            this.rateLimiter.setRate(publishRate);
         }
 
         public void run(){
             try {
                 log.info("running producer task for topic {}", this.topic);
                 Timer timer = new Timer();
-                runTask();
+                while (!done) {
+                    rateLimiter.acquire();
+                    runTask();
+                }
             } catch(Exception e) {
                 log.error("Could NOT create ProducerTask because {}", e.getMessage());
             }
@@ -291,20 +300,19 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
             if (editTopic.equals(currentProducer.getTopic())) {
                 return;
             }
-            ScheduledExecutorService currentExecutor = 
-                producers.get(producerID).getValue0();
+            ExecutorService currentExecutor = producers.get(producerID).getValue0();
             currentExecutor.shutdownNow();
         }
 
-        ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(5);
         CompletableFuture<BenchmarkProducer> future = benchmarkDriver.createProducer(editTopic);
         BenchmarkProducer producer = future.join();
-
+        
+        ExecutorService producerExecutor = Executors.newSingleThreadScheduledExecutor();
         ProducerTask producerTask = new ProducerTask(producer, producerID, editTopic, payloadData);
-        scheduledExecutor.scheduleAtFixedRate(producerTask, 0, 100, TimeUnit.MILLISECONDS);
+        producerExecutor.execute(producerTask);
         producers.put(producerID,
-            new Pair<ScheduledExecutorService, BenchmarkProducer>(
-                scheduledExecutor, producer));
+            new Pair<ExecutorService, BenchmarkProducer>(
+                producerExecutor, producer));
         log.info("Created producer in {} ms, topic {}", timer.elapsedMillis(), editTopic);
     }
 
@@ -333,6 +341,12 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
             subChangeExecutor.execute(subscriptionChangeTask);
             executors.add(subChangeExecutor);
         }
+    }
+
+    @Override
+    public void setPublishRate(int publishRate) {
+        done = false;
+        this.publishRate = publishRate;
     }
 
     @Override
@@ -475,9 +489,9 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         totalMessagesSent.reset();
         totalMessagesReceived.reset();
 
+        done = true;
         try {
             Thread.sleep(100);
-
             producers.forEach((k, pair) -> {
                 pair.getValue0().shutdownNow();
                 try{

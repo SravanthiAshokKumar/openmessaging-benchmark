@@ -300,6 +300,10 @@ public class LocalWorker implements Worker, ConsumerCallback {
     }
 
     @Override
+    public void setPublishRate(int publishRate) {
+    }
+
+    @Override
     public void startLoad(ProducerWorkAssignment producerWorkAssignment) {
         int processors = Runtime.getRuntime().availableProcessors();
 
