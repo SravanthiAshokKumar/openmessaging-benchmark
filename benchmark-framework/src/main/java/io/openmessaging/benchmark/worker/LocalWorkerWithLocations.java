@@ -159,7 +159,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
             }
             
             double curSubTime = timer.elapsedMillis();
-            log.log("Created {} consumers in {} ms", count, curSubTime);
+            log.info("Created {} consumers in {} ms", count, curSubTime);
 
             consumers.put(this.subscription, newTc);
 
