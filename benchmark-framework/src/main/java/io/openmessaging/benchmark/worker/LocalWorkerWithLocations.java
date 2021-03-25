@@ -52,6 +52,7 @@ import org.apache.bookkeeper.stats.OpStatsLogger;
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.HdrHistogram.Recorder;
 import org.javatuples.Pair;
+import org.javatuples.Triplet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,8 +61,8 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
     private BenchmarkDriver benchmarkDriver = null;
 
     // producer map contains the mapping of ProducerID to pairOf (ProducerTask executor, Producer)
-    private Map<String, Pair<ExecutorService, BenchmarkProducer>> producers =
-        new ConcurrentHashMap<String, Pair<ExecutorService, BenchmarkProducer>>();
+    private Map<String, Triplet<ExecutorService, BenchmarkProducer, ProducerTask>> producers =
+        new ConcurrentHashMap<String, Triplet<ExecutorService, BenchmarkProducer, ProducerTask>>();
     // consumer map contains the mapping of SubscriptionName to a map containing
     // TopicName to Consumer mapping
     private Map<String, Map<String, BenchmarkConsumer>> consumers = new ConcurrentHashMap<>();
@@ -158,7 +159,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
             }
             
             double curSubTime = timer.elapsedMillis();
-            log.info("Created {} consumers in {} ms", count, curSubTime);
+            log.warn("Created {} consumers in {} ms", count, curSubTime);
 
             consumers.put(this.subscription, newTc);
 
@@ -170,10 +171,8 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
                 }
             }
 
-            log.info("cur sub time = {}", (long) curSubTime);
             subscriptionChangeLatencyRecorder.recordValue((long) curSubTime);
             subscriptionChangeCumulativeLatencyRecorder.recordValue((long) curSubTime);
-
         }
     }
 
@@ -184,6 +183,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         private byte[] payloadData;
         private KeyDistributor keyDistributor;
         private RateLimiter rateLimiter = RateLimiter.create(1.0);
+        public boolean localDone = true;
 
         public ProducerTask(BenchmarkProducer producer, String producerID, String topic, byte[] payloadData) {
             this.producer = producer;
@@ -192,13 +192,13 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
             this.payloadData = payloadData;
             this.keyDistributor = KeyDistributor.build(KeyDistributorType.NO_KEY);
             this.rateLimiter.setRate(publishRate);
+            this.localDone = false;
         }
 
         public void run(){
             try {
                 log.info("running producer task for topic {}", this.topic);
-                Timer timer = new Timer();
-                while (!done) {
+                while (!localDone && !done) {
                     rateLimiter.acquire();
                     runTask();
                 }
@@ -237,7 +237,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
                 cumulativePublishLatencyRecorder.recordValue(latencyMicros);
                 publishLatencyStats.registerSuccessfulEvent(latencyMicros, TimeUnit.MICROSECONDS);
             }).exceptionally(ex -> {
-                log.warn("Write error on message", ex);
+                log.warn("Write error on message", ex.getMessage());
                 return null;
             });
         }
@@ -301,18 +301,23 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
                 return;
             }
             ExecutorService currentExecutor = producers.get(producerID).getValue0();
-            currentExecutor.shutdownNow();
+            producers.get(producerID).getValue2().localDone = true;
+            try {
+                currentExecutor.awaitTermination(10, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                log.warn("Write error on message", e.getMessage());
+            }
         }
 
         CompletableFuture<BenchmarkProducer> future = benchmarkDriver.createProducer(editTopic);
         BenchmarkProducer producer = future.join();
         
-        ExecutorService producerExecutor = Executors.newSingleThreadScheduledExecutor();
         ProducerTask producerTask = new ProducerTask(producer, producerID, editTopic, payloadData);
+        ExecutorService producerExecutor = Executors.newSingleThreadScheduledExecutor();
         producerExecutor.execute(producerTask);
         producers.put(producerID,
-            new Pair<ExecutorService, BenchmarkProducer>(
-                producerExecutor, producer));
+            new Triplet<ExecutorService, BenchmarkProducer, ProducerTask>(
+                producerExecutor, producer, producerTask));
         log.info("Created producer in {} ms, topic {}", timer.elapsedMillis(), editTopic);
     }
 
@@ -374,7 +379,6 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
 
         stats.subscriptionChangeLatency = 
             subscriptionChangeLatencyRecorder.getIntervalHistogram();
-
         stats.sentMetadata = messagesSentMetadata.toString();
         stats.receivedMetadata = messagesReceivedMetadata.toString();
 
@@ -513,7 +517,6 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
                 v.clear();
             });
             consumers.clear();
-
             executors.forEach(e -> e.shutdownNow());
             executors.clear();
 

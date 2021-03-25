@@ -185,9 +185,9 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
         executor.execute(readInput);
 
 
-        log.info("----- Starting warm-up traffic ------");
+        // log.info("----- Starting warm-up traffic ------");
 
-        printAndCollectStats(1, TimeUnit.MINUTES);
+        // printAndCollectStats(1, TimeUnit.MINUTES);
 
         worker.resetStats();
         log.info("----- Starting benchmark traffic ------");
