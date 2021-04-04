@@ -14,7 +14,7 @@ def split_to_files(infile, outdir, workers):
         lines = ipfile.readlines()
     
     for line in lines:
-        words = line.split("\t")
+        words = line.split(" ")
         if words[0] in clientToWorker:
             workerID = clientToWorker[words[0]]
             workerTables[workerID].append(line)

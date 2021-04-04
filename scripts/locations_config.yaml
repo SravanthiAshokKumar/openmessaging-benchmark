@@ -1,0 +1,9 @@
+numStaticClients: 4
+numMobileClients: 0
+min_lat: 33.7757
+min_lng: 85.3963
+max_lat: 33.8757
+max_lng: 85.4963
+locChangeInterval: 3
+totalDuration: 30
+outfile: /home/cetus/new-openmessaging-benchmark/parsed/locations/staticclients_4.data

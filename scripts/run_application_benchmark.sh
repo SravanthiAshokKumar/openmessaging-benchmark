@@ -70,14 +70,20 @@ stop_cluster()
 start_benchmark_workers()
 {
     i=0
-    
+
     for client in $CLIENTS
     do
         filename="$file_beg$i$file_end"
         dirname="$file_beg$i"
-        ssh $client "cd $BENCHMARK_HOME; ./bin/benchmark --drivers driver-pulsar/$DRIVER_CONFIG \
-            --locations locations/$filename --outputDir output/$dirname \
-            $WORKLOAD_FILENAME > benchmark.out &"
+        if [ "$i" -eq 0 ]
+        then
+            ssh $client "cd $BENCHMARK_HOME; ./bin/app-benchmark.sh --drivers driver-pulsar/$DRIVER_CONFIG \
+            --outdir output/$dirname indexConfig.yaml > output/$dirname/application-benchmark.out &"
+        else
+            ssh $client "cd $BENCHMARK_HOME; ./bin/benchmark --drivers driver-pulsar/$DRIVER_CONFIG \
+                --locations locations/$filename --outputDir output/$dirname \
+                $WORKLOAD_FILENAME > output/$dirname/benchmark.out &"
+        fi
         i=$((i+1))
     done
 }
@@ -96,16 +102,26 @@ collect_results()
     for client in $CLIENTS
     do
         dirname="$file_beg$i"
-        json_filename=C_$NUM_CLIENTS"_I_"$ITER"_"$dirname.json
-        out_filename=C_$NUM_CLIENTS"_I_"$ITER"_"$dirname.out
-	    scp -r $client:$BENCHMARK_HOME/output/$dirname $BENCHMARK_HOME/output/output_mobile_locations_interval_3/$dirname
-        cd $BENCHMARK_HOME/output/output_mobile_locations_interval_3/$dirname/
+        scp -r $client:$BENCHMARK_HOME/output/$dirname $BENCHMARK_HOME/output/output_static_trial/$dirname
+        cd $BENCHMARK_HOME/output/output_static_trial/$dirname/
         f=(`ls`)
-        cp ${f[0]} ../$json_filename
+        
+        if [ "$i" -eq 0 ]
+        then
+            app_json=json_filename=application_C_$NUM_CLIENTS"_I_"$ITER"_"$dirname.json 
+            app_out=application_C_$NUM_CLIENTS"_I_"$ITER"_"$dirname.out
+            cp ${f[0]} ../$app_json
+            cp ${f[1]} ../$app_out
+        else
+            json_filename=C_$NUM_CLIENTS"_I_"$ITER"_"$dirname.json
+            out_filename=C_$NUM_CLIENTS"_I_"$ITER"_"$dirname.out
+            cp ${f[0]} ../$json_filename
+            cp ${f[1]} ../$out_filename
+        fi
         cd ..
         rm -rf $dirname
         cd $BENCHMARK_HOME
-        scp -r $client:$BENCHMARK_HOME/benchmark.out $BENCHMARK_HOME/output/output_mobile_locations_interval_3/$out_filename
+        scp -r $client:$BENCHMARK_HOME/benchmark.out $BENCHMARK_HOME/output/output_static_trial/$out_filename
         i=$((i+1))
     done
 }

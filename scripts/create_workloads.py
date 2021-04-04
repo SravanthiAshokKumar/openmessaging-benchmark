@@ -32,7 +32,7 @@ def getYaml(workload_config, index_config):
 
 def generateYamlFiles(workload_config, index_config):
     conf = getYaml(workload_config, index_config)
-    outfile_name = '/home/surveillance/openmessaging-benchmark/workloads/testWorkloads/' +\
+    outfile_name = '/home/cetus/new-openmessaging-benchmark/workloads/testWorkloads/' +\
         str(workload_config['topics']) +\
         '-topics-' + str(workload_config['partitionsPerTopic']) +\
         '-partitions-' + workload_config['payloadFile'] + '.yaml'
