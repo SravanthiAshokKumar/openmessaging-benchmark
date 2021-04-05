@@ -183,7 +183,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         private byte[] payloadData;
         private KeyDistributor keyDistributor;
         private RateLimiter rateLimiter = RateLimiter.create(1.0);
-        public boolean localDone = true;
+        private boolean localDone = true;
 
         public ProducerTask(BenchmarkProducer producer, String producerID, String topic, byte[] payloadData) {
             this.producer = producer;
@@ -193,6 +193,10 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
             this.keyDistributor = KeyDistributor.build(KeyDistributorType.NO_KEY);
             this.rateLimiter.setRate(publishRate);
             this.localDone = false;
+        }
+
+        public void setLocalDone(boolean val) {
+            this.localDone = val;
         }
 
         public void run(){
@@ -301,7 +305,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
                 return;
             }
             ExecutorService currentExecutor = producers.get(producerID).getValue0();
-            producers.get(producerID).getValue2().localDone = true;
+            producers.get(producerID).getValue2().setLocalDone(true);
             try {
                 currentExecutor.awaitTermination(10, TimeUnit.MILLISECONDS);
             } catch (InterruptedException e) {
@@ -323,10 +327,11 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
 
     @Override
     public void createConsumers(ConsumerAssignment consumerAssignment) {
-        String subscription = consumerAssignment.topicsSubscriptions.get(0).subscription;
+        String subscription = consumerAssignment.topicsSubscriptions.get(0)
+            .subscription;
         List<String> topics = consumerAssignment.topicsSubscriptions.stream()
-            .map(ts -> String.format("%s%s",benchmarkDriver.getTopicNamePrefix(), ts.topic))
-            .collect(toList());
+            .map(ts -> String.format("%s%s-app",benchmarkDriver.getTopicNamePrefix(),
+            ts.topic)).collect(toList());
 
         if (!consumers.containsKey(subscription)) {
             Timer timer = new Timer();
@@ -338,7 +343,8 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
             Map<String, BenchmarkConsumer> tc = new HashMap<>();
             bConsumers.forEach(c -> tc.put(c.getTopic(), c));
             consumers.put(subscription, tc);
-            log.info("Created {} consumers in {} ms", topics.size(), timer.elapsedMillis());
+            log.info("Created {} consumers in {} ms", topics.size(),
+                timer.elapsedMillis());
         } else {
             ExecutorService subChangeExecutor = Executors.newSingleThreadScheduledExecutor();
             SubscriptionChangeTask subscriptionChangeTask = 
@@ -495,10 +501,10 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
 
         done = true;
         try {
-            Thread.sleep(100);
             producers.forEach((k, pair) -> {
-                pair.getValue0().shutdownNow();
+                pair.getValue2().setLocalDone(true);
                 try{
+                    pair.getValue0().awaitTermination(20, TimeUnit.MILLISECONDS);
                     pair.getValue1().close();
                 } catch (Exception ex) {
                     log.warn("Error occured while closing the consumer connection, {}", ex);

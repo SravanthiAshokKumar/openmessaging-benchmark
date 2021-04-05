@@ -42,7 +42,6 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
     private final String locations;
 
     private Map<Double, List<Triplet<String, Double, Double>>> timeToTuple = new LinkedHashMap<>();
-    private List<Double> timeToSleep = new ArrayList<>();
     
     private volatile boolean runCompleted = false;
     private volatile boolean needToWaitForBacklogDraining = false;
@@ -75,7 +74,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
         }
     }
 
-    public TestResult run() throws Exception {
+    public List<TestResult> run() throws Exception {
         Timer timer = new Timer();
         List<String> topics;
   
@@ -95,7 +94,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                 props
             );
         } else {
-        index =
+            index =
                 IndexFactory.getInitializedIndex(
                 indexConfig.minX,
                 indexConfig.minY,
@@ -108,26 +107,29 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
         }
 
         log.info("created index");
+        
         parseLocations();
 
         final PayloadReader payloadReader = new FilePayloadReader(workload.messageSize);
         
         byte[] payloadData = payloadReader.load(workload.payloadFile);
+        
         worker.setPublishRate(workload.producerRate);
         Runnable readInput = () -> {
             Iterator<Entry<Double, List<Triplet<String, Double, Double>>>> it = 
                 timeToTuple.entrySet().iterator();
-            Double keyToRemove = null;
-            int j = 0;
+            Double prev = Double.valueOf(0);
             while (it.hasNext()) {
+                Entry<Double, List<Triplet<String, Double, Double>>> entry = it.next();
                 try {
-                    Thread.sleep(timeToSleep.get(j).longValue()*1000);
-                    j++;
+                    Double sleep = entry.getKey() - prev;
+                    prev = entry.getKey();
+                    Thread.sleep(sleep.longValue()*1000);
                 } catch (InterruptedException e) {
                     break;
                 }
                 // The triple consists of the ClientID, latitude and longitude of the vehicle
-                List<Triplet<String, Double, Double>> value = it.next().getValue();
+                List<Triplet<String, Double, Double>> value = entry.getValue();
                 for (int i = 0; i < value.size(); i++) {
                     Triplet<String, Double, Double> tuple = value.get(i);
                     String clientID = tuple.getValue0();
@@ -184,23 +186,18 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
         ExecutorService executor = Executors.newCachedThreadPool();
         executor.execute(readInput);
 
-
-        // log.info("----- Starting warm-up traffic ------");
-
-        // printAndCollectStats(1, TimeUnit.MINUTES);
-
         worker.resetStats();
         log.info("----- Starting benchmark traffic ------");
 
-        TestResult result = printAndCollectStats(workload.testDurationMinutes, TimeUnit.MINUTES);
+        List<TestResult> result = printAndCollectStats(workload.testDurationMinutes, TimeUnit.MINUTES);
         runCompleted = true;
 
+        executor.shutdownNow();
         try {
             worker.stopAll();
         } catch (RuntimeException e) {
             log.error("Exception ocurred: ", e.getMessage());
         }
-        executor.shutdownNow();
         return result;
     }
 
@@ -219,7 +216,6 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
 
         try{
             Scanner locReader = new Scanner(loc);
-            Double prev = Double.valueOf(0);
             while (locReader.hasNextLine()) {
                 String line = locReader.nextLine();
                 String[] fields = line.split("\\s+");
@@ -235,9 +231,6 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                         Double.parseDouble(fields[1]), Double.parseDouble(fields[2])));
                     timeToTuple.put(time, insertVal);
                 }
- 
-                timeToSleep.add(time - prev);
-                prev = time;
             }
         } catch (FileNotFoundException ex) {
             log.warn("Failure in opening the given file", ex);
@@ -280,139 +273,152 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
         log.info("Created a producer in {} ms", timer.elapsedMillis());
     }
 
-    private TestResult printAndCollectStats(long testDurations, TimeUnit unit) 
-        throws IOException {
-        
+    private List<TestResult> printAndCollectStats(long testDurations, TimeUnit unit) throws IOException {
         long startTime = System.nanoTime();
 
         // Print report stats
         long oldTime = System.nanoTime();
 
-        long testEndTime = testDurations > 0 ? startTime + unit.toNanos(testDurations) : Long.MAX_VALUE;
+        long testEndTime = testDurations > 0 ? startTime + unit.toNanos(testDurations) :
+            Long.MAX_VALUE;
 
-        TestResult result = new TestResult();
-        result.workload = workload.name;
-        result.driver = driverName;
+        List<TestResult> results = new ArrayList<TestResult>();
+        results.add(new TestResult());
+        PeriodStats stats;
+        CumulativeLatencies agg;
 
         while (true) {
+            long now = System.nanoTime();
+        
             try {
                 Thread.sleep(10000);
             } catch (InterruptedException e) {
                 break;
             }
-            PeriodStats stats = worker.getPeriodStats();
-
-            long now = System.nanoTime();
-            double elapsed = (now - oldTime) / 1e9;
-
-            double publishRate = stats.messagesSent / elapsed;
-            double publishThroughput = stats.bytesSent / elapsed / 1024 / 1024;
-
-            double consumeRate = stats.messagesReceived / elapsed;
-            double consumeThroughput = stats.bytesReceived / elapsed / 1024 / 1024;
-
-            long currentBacklog = workload.subscriptionsPerTopic * stats.totalMessagesSent
-                    - stats.totalMessagesReceived;
-
-            log.info(
-                    "Pub rate {} msg/s / {} Mb/s | Cons rate {} msg/s / {} Mb/s | Backlog: {} K | Pub Latency (ms) avg: {} - 50%: {} - 99%: {} - 99.9%: {} - Max: {}",
-                    rateFormat.format(publishRate), throughputFormat.format(publishThroughput),
-                    rateFormat.format(consumeRate), throughputFormat.format(consumeThroughput),
-                    dec.format(currentBacklog / 1000.0), //
-                    dec.format(microsToMillis(stats.publishLatency.getMean())),
-                    dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(50))),
-                    dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(99))),
-                    dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(99.9))),
-                    throughputFormat.format(microsToMillis(stats.publishLatency.getMaxValue())));
-
-            result.messagesSent = stats.totalMessagesSent;
-            result.messagesReceived = stats.totalMessagesReceived;
-            result.sentMetadata = stats.sentMetadata;
-            result.receivedMetadata = stats.receivedMetadata;
-            result.allConsumerTopics = this.allConsumerTopics;
-            result.allProducerTopics = this.allProducerTopics;
-
-            result.publishRate.add(publishRate);
-            result.consumeRate.add(consumeRate);
-            result.backlog.add(currentBacklog);
-            result.publishLatencyAvg.add(microsToMillis(stats.publishLatency.getMean()));
-            result.publishLatency50pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(50)));
-            result.publishLatency75pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(75)));
-            result.publishLatency95pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(95)));
-            result.publishLatency99pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(99)));
-            result.publishLatency999pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(99.9)));
-            result.publishLatency9999pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(99.99)));
-            result.publishLatencyMax.add(microsToMillis(stats.publishLatency.getMaxValue()));
-
-            result.endToEndLatencyAvg.add(microsToMillis(stats.endToEndLatency.getMean()));
-            result.endToEndLatency50pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(50)));
-            result.endToEndLatency75pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(75)));
-            result.endToEndLatency95pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(95)));
-            result.endToEndLatency99pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(99)));
-            result.endToEndLatency999pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(99.9)));
-            result.endToEndLatency9999pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(99.99)));
-            result.endToEndLatencyMax.add(microsToMillis(stats.endToEndLatency.getMaxValue()));
-
-            result.subscriptionChangeLatencyAvg.add(microsToMillis(stats.subscriptionChangeLatency.getMean()));
-            result.subscriptionChangeLatency50pct.add(microsToMillis(stats.subscriptionChangeLatency.getValueAtPercentile(50)));
-            result.subscriptionChangeLatency75pct.add(microsToMillis(stats.subscriptionChangeLatency.getValueAtPercentile(75)));
-            result.subscriptionChangeLatency95pct.add(microsToMillis(stats.subscriptionChangeLatency.getValueAtPercentile(95)));
-            result.subscriptionChangeLatency99pct.add(microsToMillis(stats.subscriptionChangeLatency.getValueAtPercentile(99)));
-            result.subscriptionChangeLatencyMax.add(microsToMillis(stats.subscriptionChangeLatency.getMaxValue()));
-
+            stats = worker.getPeriodStats();
+            agg = worker.getCumulativeLatencies();
+            results.set(0, gateherResults(stats, testDurations, unit, agg));
+            
             if (now >= testEndTime && !needToWaitForBacklogDraining) {
-                CumulativeLatencies agg = worker.getCumulativeLatencies();
-                log.info(
-                        "----- Aggregated Pub Latency (ms) avg: {} - 50%: {} - 95%: {} - 99%: {} - 99.9%: {} - 99.99%: {} - Max: {}",
-                        dec.format(agg.publishLatency.getMean() / 1000.0),
-                        dec.format(agg.publishLatency.getValueAtPercentile(50) / 1000.0),
-                        dec.format(agg.publishLatency.getValueAtPercentile(95) / 1000.0),
-                        dec.format(agg.publishLatency.getValueAtPercentile(99) / 1000.0),
-                        dec.format(agg.publishLatency.getValueAtPercentile(99.9) / 1000.0),
-                        dec.format(agg.publishLatency.getValueAtPercentile(99.99) / 1000.0),
-                        throughputFormat.format(agg.publishLatency.getMaxValue() / 1000.0));
-
-                result.aggregatedPublishLatencyAvg = agg.publishLatency.getMean() / 1000.0;
-                result.aggregatedPublishLatency50pct = agg.publishLatency.getValueAtPercentile(50) / 1000.0;
-                result.aggregatedPublishLatency75pct = agg.publishLatency.getValueAtPercentile(75) / 1000.0;
-                result.aggregatedPublishLatency95pct = agg.publishLatency.getValueAtPercentile(95) / 1000.0;
-                result.aggregatedPublishLatency99pct = agg.publishLatency.getValueAtPercentile(99) / 1000.0;
-                result.aggregatedPublishLatency999pct = agg.publishLatency.getValueAtPercentile(99.9) / 1000.0;
-                result.aggregatedPublishLatency9999pct = agg.publishLatency.getValueAtPercentile(99.99) / 1000.0;
-                result.aggregatedPublishLatencyMax = agg.publishLatency.getMaxValue() / 1000.0;
-
-                result.aggregatedEndToEndLatencyAvg = agg.endToEndLatency.getMean()  / 1000.0;
-                result.aggregatedEndToEndLatency50pct = agg.endToEndLatency.getValueAtPercentile(50)  / 1000.0;
-                result.aggregatedEndToEndLatency75pct = agg.endToEndLatency.getValueAtPercentile(75)  / 1000.0;
-                result.aggregatedEndToEndLatency95pct = agg.endToEndLatency.getValueAtPercentile(95)  / 1000.0;
-                result.aggregatedEndToEndLatency99pct = agg.endToEndLatency.getValueAtPercentile(99)  / 1000.0;
-                result.aggregatedEndToEndLatency999pct = agg.endToEndLatency.getValueAtPercentile(99.9)  / 1000.0;
-                result.aggregatedEndToEndLatency9999pct = agg.endToEndLatency.getValueAtPercentile(99.99)  / 1000.0;
-                result.aggregatedEndToEndLatencyMax = agg.endToEndLatency.getMaxValue()  / 1000.0;
-
-                result.aggregatedsubscriptionChangeLatencyAvg = agg.subscriptionChangeLatency.getMean()  / 1000.0;
-                result.aggregatedsubscriptionChangeLatency50pct = agg.subscriptionChangeLatency.getValueAtPercentile(50)  / 1000.0;
-                result.aggregatedsubscriptionChangeLatency75pct = agg.subscriptionChangeLatency.getValueAtPercentile(75)  / 1000.0;
-                result.aggregatedsubscriptionChangeLatency95pct = agg.subscriptionChangeLatency.getValueAtPercentile(95)  / 1000.0;
-                result.aggregatedsubscriptionChangeLatency99pct = agg.subscriptionChangeLatency.getValueAtPercentile(99)  / 1000.0;
-                result.aggregatedsubscriptionChangeLatencyMax = agg.subscriptionChangeLatency.getMaxValue()  / 1000.0;
-
-                agg.publishLatency.percentiles(100).forEach(value -> {
-                    result.aggregatedPublishLatencyQuantiles.put(value.getPercentile(),
-                            value.getValueIteratedTo() / 1000.0);
-                });
-
-                agg.endToEndLatency.percentiles(100).forEach(value -> {
-                    result.aggregatedEndToEndLatencyQuantiles.put(value.getPercentile(),
-                            microsToMillis(value.getValueIteratedTo()));
-                });
-                
-    
                 break;
             }
-                
+
             oldTime = now;
         }
+        return results;
+    }
+
+    private TestResult gateherResults(PeriodStats stats, long testDurations, TimeUnit unit,
+        CumulativeLatencies agg) {
+        TestResult result = new TestResult();
+        result.workload = workload.name;
+        result.driver = driverName;
+
+        long oldTime = System.nanoTime();
+        long now = System.nanoTime();
+        double elapsed = (now - oldTime) / 1e9;
+
+        double publishRate = stats.messagesSent / elapsed;
+        double publishThroughput = stats.bytesSent / elapsed / 1024 / 1024;
+
+        double consumeRate = stats.messagesReceived / elapsed;
+        double consumeThroughput = stats.bytesReceived / elapsed / 1024 / 1024;
+
+        long currentBacklog = workload.subscriptionsPerTopic * stats.totalMessagesSent
+                - stats.totalMessagesReceived;
+
+        log.info(
+            "Pub rate {} msg/s / {} Mb/s | Cons rate {} msg/s / {} Mb/s | Backlog: {} K | Pub Latency (ms) avg: {} - 50%: {} - 99%: {} - 99.9%: {} - Max: {}",
+            rateFormat.format(publishRate), throughputFormat.format(publishThroughput),
+            rateFormat.format(consumeRate), throughputFormat.format(consumeThroughput),
+            dec.format(currentBacklog / 1000.0), //
+            dec.format(microsToMillis(stats.publishLatency.getMean())),
+            dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(50))),
+            dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(99))),
+            dec.format(microsToMillis(stats.publishLatency.getValueAtPercentile(99.9))),
+            throughputFormat.format(microsToMillis(stats.publishLatency.getMaxValue()))
+        );
+
+        result.messagesSent = stats.totalMessagesSent;
+        result.messagesReceived = stats.totalMessagesReceived;
+        result.sentMetadata = stats.sentMetadata;
+        result.receivedMetadata = stats.receivedMetadata;
+        result.allConsumerTopics = this.allConsumerTopics;
+        result.allProducerTopics = this.allProducerTopics;
+
+        result.publishRate.add(publishRate);
+        result.consumeRate.add(consumeRate);
+        result.backlog.add(currentBacklog);
+        result.publishLatencyAvg.add(microsToMillis(stats.publishLatency.getMean()));
+        result.publishLatency50pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(50)));
+        result.publishLatency75pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(75)));
+        result.publishLatency95pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(95)));
+        result.publishLatency99pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(99)));
+        result.publishLatency999pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(99.9)));
+        result.publishLatency9999pct.add(microsToMillis(stats.publishLatency.getValueAtPercentile(99.99)));
+        result.publishLatencyMax.add(microsToMillis(stats.publishLatency.getMaxValue()));
+
+        result.endToEndLatencyAvg.add(microsToMillis(stats.endToEndLatency.getMean()));
+        result.endToEndLatency50pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(50)));
+        result.endToEndLatency75pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(75)));
+        result.endToEndLatency95pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(95)));
+        result.endToEndLatency99pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(99)));
+        result.endToEndLatency999pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(99.9)));
+        result.endToEndLatency9999pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(99.99)));
+        result.endToEndLatencyMax.add(microsToMillis(stats.endToEndLatency.getMaxValue()));
+
+        result.subscriptionChangeLatencyAvg.add(microsToMillis(stats.subscriptionChangeLatency.getMean()));
+        result.subscriptionChangeLatency50pct.add(microsToMillis(stats.subscriptionChangeLatency.getValueAtPercentile(50)));
+        result.subscriptionChangeLatency75pct.add(microsToMillis(stats.subscriptionChangeLatency.getValueAtPercentile(75)));
+        result.subscriptionChangeLatency95pct.add(microsToMillis(stats.subscriptionChangeLatency.getValueAtPercentile(95)));
+        result.subscriptionChangeLatency99pct.add(microsToMillis(stats.subscriptionChangeLatency.getValueAtPercentile(99)));
+        result.subscriptionChangeLatencyMax.add(microsToMillis(stats.subscriptionChangeLatency.getMaxValue()));
+
+        log.info(
+            "----- Aggregated Pub Latency (ms) avg: {} - 50%: {} - 95%: {} - 99%: {} - 99.9%: {} - 99.99%: {} - Max: {}",
+            dec.format(agg.publishLatency.getMean() / 1000.0),
+            dec.format(agg.publishLatency.getValueAtPercentile(50) / 1000.0),
+            dec.format(agg.publishLatency.getValueAtPercentile(95) / 1000.0),
+            dec.format(agg.publishLatency.getValueAtPercentile(99) / 1000.0),
+            dec.format(agg.publishLatency.getValueAtPercentile(99.9) / 1000.0),
+            dec.format(agg.publishLatency.getValueAtPercentile(99.99) / 1000.0),
+            throughputFormat.format(agg.publishLatency.getMaxValue() / 1000.0)
+        );
+
+        result.aggregatedPublishLatencyAvg = agg.publishLatency.getMean() / 1000.0;
+        result.aggregatedPublishLatency50pct = agg.publishLatency.getValueAtPercentile(50) / 1000.0;
+        result.aggregatedPublishLatency75pct = agg.publishLatency.getValueAtPercentile(75) / 1000.0;
+        result.aggregatedPublishLatency95pct = agg.publishLatency.getValueAtPercentile(95) / 1000.0;
+        result.aggregatedPublishLatency99pct = agg.publishLatency.getValueAtPercentile(99) / 1000.0;
+        result.aggregatedPublishLatency999pct = agg.publishLatency.getValueAtPercentile(99.9) / 1000.0;
+        result.aggregatedPublishLatency9999pct = agg.publishLatency.getValueAtPercentile(99.99) / 1000.0;
+        result.aggregatedPublishLatencyMax = agg.publishLatency.getMaxValue() / 1000.0;
+
+        result.aggregatedEndToEndLatencyAvg = agg.endToEndLatency.getMean()  / 1000.0;
+        result.aggregatedEndToEndLatency50pct = agg.endToEndLatency.getValueAtPercentile(50)  / 1000.0;
+        result.aggregatedEndToEndLatency75pct = agg.endToEndLatency.getValueAtPercentile(75)  / 1000.0;
+        result.aggregatedEndToEndLatency95pct = agg.endToEndLatency.getValueAtPercentile(95)  / 1000.0;
+        result.aggregatedEndToEndLatency99pct = agg.endToEndLatency.getValueAtPercentile(99)  / 1000.0;
+        result.aggregatedEndToEndLatency999pct = agg.endToEndLatency.getValueAtPercentile(99.9)  / 1000.0;
+        result.aggregatedEndToEndLatency9999pct = agg.endToEndLatency.getValueAtPercentile(99.99)  / 1000.0;
+        result.aggregatedEndToEndLatencyMax = agg.endToEndLatency.getMaxValue()  / 1000.0;
+
+        result.aggregatedsubscriptionChangeLatencyAvg = agg.subscriptionChangeLatency.getMean()  / 1000.0;
+        result.aggregatedsubscriptionChangeLatency50pct = agg.subscriptionChangeLatency.getValueAtPercentile(50)  / 1000.0;
+        result.aggregatedsubscriptionChangeLatency75pct = agg.subscriptionChangeLatency.getValueAtPercentile(75)  / 1000.0;
+        result.aggregatedsubscriptionChangeLatency95pct = agg.subscriptionChangeLatency.getValueAtPercentile(95)  / 1000.0;
+        result.aggregatedsubscriptionChangeLatency99pct = agg.subscriptionChangeLatency.getValueAtPercentile(99)  / 1000.0;
+        result.aggregatedsubscriptionChangeLatencyMax = agg.subscriptionChangeLatency.getMaxValue()  / 1000.0;
+
+        agg.publishLatency.percentiles(100).forEach(value -> {
+            result.aggregatedPublishLatencyQuantiles.put(value.getPercentile(),
+                    value.getValueIteratedTo() / 1000.0);
+        });
+
+        agg.endToEndLatency.percentiles(100).forEach(value -> {
+            result.aggregatedEndToEndLatencyQuantiles.put(value.getPercentile(),
+                    microsToMillis(value.getValueIteratedTo()));
+        });
 
         return result;
     }

@@ -30,7 +30,7 @@ Configuration:
         
   Loggers: 
     Root:
-      level: warn
+      level: info
       additivity: false
       AppenderRef:
         ref: Console

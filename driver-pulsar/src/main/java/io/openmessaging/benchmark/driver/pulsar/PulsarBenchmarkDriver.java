@@ -204,9 +204,9 @@ public class PulsarBenchmarkDriver implements BenchmarkDriver {
         cb.topic(topic).subscriptionName(subscriptionName);
         consumerBuilders.put(subscriptionName, cb);
         
-        for(String key: consumerBuilders.keySet()){
-            log.info("Added {}", key);
-        } 
+        // for(String key: consumerBuilders.keySet()){
+        //     log.info("Added {}", key);
+        // } 
         return cb.subscribeAsync().thenApply(consumer -> new PulsarBenchmarkConsumer(consumer));
 
 

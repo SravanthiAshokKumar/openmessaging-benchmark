@@ -93,6 +93,12 @@
         </dependency>
 
         <dependency>
+            <groupId>ch.hsr</groupId>
+            <artifactId>geohash</artifactId>
+            <version>1.3.0</version>
+        </dependency>
+        
+        <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>driver-pulsar</artifactId>
             <version>${project.version}</version>

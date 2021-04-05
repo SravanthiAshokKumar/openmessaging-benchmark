@@ -1,6 +1,8 @@
 package io.openmessaging.benchmark;
 
+import java.util.List;
+
 public interface WorkloadGeneratorInterface extends AutoCloseable {
 
-    TestResult run() throws Exception;
+    List<TestResult> run() throws Exception;
 }

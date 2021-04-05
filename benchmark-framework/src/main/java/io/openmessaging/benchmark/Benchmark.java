@@ -39,6 +39,7 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
 import io.openmessaging.benchmark.worker.DistributedWorkersEnsemble;
+import io.openmessaging.benchmark.worker.ApplicationWorker;
 import io.openmessaging.benchmark.worker.LocalWorker;
 import io.openmessaging.benchmark.worker.LocalWorkerWithLocations;
 import io.openmessaging.benchmark.worker.Worker;
@@ -170,7 +171,7 @@ public class Benchmark {
                             workload, worker);
                     }
 
-                    TestResult result = generator.run();
+                    List<TestResult> result = generator.run();
 
                     String fileName = String.format("%s/C-%s-%s-%s-%s.json", arguments.outputDir,
                         workload.numClients, workloadName, driverConfiguration.name,

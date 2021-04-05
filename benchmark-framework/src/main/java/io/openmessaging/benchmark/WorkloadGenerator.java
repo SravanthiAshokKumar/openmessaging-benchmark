@@ -79,7 +79,7 @@ public class WorkloadGenerator implements WorkloadGeneratorInterface {
         }
     }
 
-    public TestResult run() throws Exception {
+    public List<TestResult> run() throws Exception {
         Timer timer = new Timer();
         List<String> topics;
   
@@ -141,7 +141,7 @@ public class WorkloadGenerator implements WorkloadGeneratorInterface {
         worker.resetStats();
         log.info("----- Starting benchmark traffic ------");
 
-        TestResult result = printAndCollectStats(workload.testDurationMinutes, TimeUnit.MINUTES);
+        List<TestResult> result = printAndCollectStats(workload.testDurationMinutes, TimeUnit.MINUTES);
         runCompleted = true;
 
         worker.stopAll();
@@ -391,7 +391,7 @@ public class WorkloadGenerator implements WorkloadGeneratorInterface {
         }
     }
 
-    private TestResult printAndCollectStats(long testDurations, TimeUnit unit) throws IOException {
+    private List<TestResult> printAndCollectStats(long testDurations, TimeUnit unit) throws IOException {
         long startTime = System.nanoTime();
 
         // Print report stats
@@ -524,7 +524,9 @@ public class WorkloadGenerator implements WorkloadGeneratorInterface {
             oldTime = now;
         }
 
-        return result;
+        List<TestResult> results = new ArrayList<TestResult>();
+        results.add(result);
+        return results;
     }
 
     private static final DecimalFormat rateFormat = new PaddingDecimalFormat("0.0", 7);
