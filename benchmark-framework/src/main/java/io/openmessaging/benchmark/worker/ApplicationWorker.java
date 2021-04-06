@@ -4,9 +4,6 @@ import ch.hsr.geohash.GeoHash;
 import ch.hsr.geohash.util.TwoGeoHashBoundingBox;
 import ch.hsr.geohash.util.BoundingBoxGeoHashIterator;
 
-import epl.pubsub.location.indexperf.Index;
-import epl.pubsub.location.indexperf.IndexFactory;
-
 import static java.util.stream.Collectors.toList;
 
 import java.io.File;
@@ -187,31 +184,6 @@ public class ApplicationWorker implements ConsumerCallback {
     }
 
     public void startWorker(IndexConfig indexConfig) {
-        Index index;
-        Properties props = new Properties();
-        if (indexConfig.indexType.equals("GEOHASH")) {
-            index =
-            IndexFactory.getInitializedIndex(
-                indexConfig.minX,
-                indexConfig.minY,
-                indexConfig.maxX,
-                indexConfig.maxY,
-                indexConfig.blockSize,
-                IndexFactory.IndexType.GEOHASH,
-                props
-            );
-        } else {
-            index =
-                IndexFactory.getInitializedIndex(
-                indexConfig.minX,
-                indexConfig.minY,
-                indexConfig.maxX,
-                indexConfig.maxY,
-                indexConfig.blockSize,
-                IndexFactory.IndexType.RTREE,
-                props
-            );
-        }
         String topicPrefix = benchmarkDriver.getTopicNamePrefix();
         
         GeoHash sw = GeoHash.withCharacterPrecision(indexConfig.minX, indexConfig.minY, 7);

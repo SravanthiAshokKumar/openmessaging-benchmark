@@ -1,7 +1,6 @@
 package io.openmessaging.benchmark;
 
-import epl.pubsub.location.indexperf.Index;
-import epl.pubsub.location.indexperf.IndexFactory;
+import ch.hsr.geohash.GeoHash;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -48,7 +47,6 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
 
     private volatile double targetPublishRate;
 
-    private Index index;
     private IndexConfig indexConfig;
 
     private Map<String, List<List<String>>> allConsumerTopics 
@@ -80,32 +78,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
   
         // Integrate GEOHASH here
         this.indexConfig = workload.indexConfig;
-
-        Properties props = new Properties();
-        if (indexConfig.indexType.equals("GEOHASH")) {
-            index =
-            IndexFactory.getInitializedIndex(
-                indexConfig.minX,
-                indexConfig.minY,
-                indexConfig.maxX,
-                indexConfig.maxY,
-                indexConfig.blockSize,
-                IndexFactory.IndexType.GEOHASH,
-                props
-            );
-        } else {
-            index =
-                IndexFactory.getInitializedIndex(
-                indexConfig.minX,
-                indexConfig.minY,
-                indexConfig.maxX,
-                indexConfig.maxY,
-                indexConfig.blockSize,
-                IndexFactory.IndexType.RTREE,
-                props
-            );
-        }
-
+        
         log.info("created index");
         
         parseLocations();
@@ -137,22 +110,19 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                         allConsumerTopics.size() >= workload.numClients) {
                             continue;
                     }
-                    // get topics based on the location
-                    String producerTopic = index.getStringValue(tuple.getValue1(),
-                        tuple.getValue2());
 
-                    List<String> consumerTopics;
-                    {
-                        List<String> temp = index.getNearestNeighbors(tuple.getValue1(),
-                            tuple.getValue2());
-                        if (temp == null){
-                            consumerTopics = new ArrayList<>();
-                        } else {
-                            consumerTopics = new ArrayList<>(temp);
-                        }
+                    GeoHash point = GeoHash.withCharacterPrecision(tuple.getValue1(),
+                        tuple.getValue2(), 7);
+                    String producerTopic = GeoHash.geoHashStringWithCharacterPrecision(tuple.getValue1(),
+                        tuple.getValue2(), 7);
+                    
+                    List<String> consumerTopics = new ArrayList<>();
+                    GeoHash[] adj = point.getAdjacent();
+                    for(int j =0; j < adj.length; ++j) {
+                        consumerTopics.add(adj[j].toBase32());
                     }
-
                     consumerTopics.add(producerTopic);
+
                     if (allConsumerTopics.containsKey(clientID)) {
                         allConsumerTopics.get(clientID).add(consumerTopics);
                         allProducerTopics.get(clientID).add(producerTopic);

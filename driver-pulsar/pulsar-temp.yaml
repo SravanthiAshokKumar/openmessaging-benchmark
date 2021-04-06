@@ -22,14 +22,14 @@ driverClass: io.openmessaging.benchmark.driver.pulsar.PulsarBenchmarkDriver
 
 # Pulsar client-specific configuration
 client:
-  serviceUrl: pulsar://192.168.124.174:6650
-  httpUrl: http://192.168.124.174:8080
+  serviceUrl: pulsar://10.100.1.220:6650
+  httpUrl: http://10.100.1.220:8080
   ioThreads: 1
   connectionsPerBroker: 1
   clusterName: local
   cluster: local
   createNamespace: false
-  namespacePrefix: benchmark/ns-namespace
+  namespacePrefix: benchmark/ns-names
   topicType: non_persistent
  # persistence:
  #   ensembleSize: 1 
