@@ -141,7 +141,8 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                         byte[] appendBytes = addData.getBytes();
                         byte[] finalPayload = ArrayUtils.addAll(payloadData,
                             appendBytes);
-                        createProducer(producerTopic, clientID, finalPayload);
+                        String subTopic = producerTopic.substring(0, 6);
+                        createProducer(subTopic, clientID, finalPayload);
                         if (consumerTopics != null) {
                             createConsumer(consumerTopics, clientID);
                         }

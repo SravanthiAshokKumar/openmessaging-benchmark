@@ -477,8 +477,10 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         endToEndLatencyRecorder.reset();
         endToEndCumulativeLatencyRecorder.reset();
         subscriptionChangeLatencyRecorder.reset();
-        messagesSentMetadata = new ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>();
-        messagesReceivedMetadata = new ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>();
+        messagesSentMetadata = new ConcurrentHashMap<String,
+            ConcurrentHashMap<String, Long>>();
+        messagesReceivedMetadata = new ConcurrentHashMap<String,
+            ConcurrentHashMap<String, Long>>();
     }
 
     @Override

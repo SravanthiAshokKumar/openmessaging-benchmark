@@ -16,11 +16,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.*;
 
@@ -93,6 +95,13 @@ public class ApplicationWorker implements ConsumerCallback {
         TimeUnit.HOURS.toMicros(12), 5);
     private final OpStatsLogger endToEndLatencyStats;
 
+    private Map<String, ConcurrentHashMap<String, Long>> messagesSentMetadata = 
+        new ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>();
+    private Map<String, ConcurrentHashMap<String, Long>> messagesReceivedMetadata = 
+        new ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>();
+
+    private Set<String> hashTopics = new HashSet<String>();
+
     class ProducerTask implements Runnable {
         private BenchmarkProducer producer;
         private String producerID;
@@ -128,13 +137,28 @@ public class ApplicationWorker implements ConsumerCallback {
             Timer timer = new Timer();
             
             final long sendTime = System.nanoTime();
-            this.producer.sendAsync(Optional.ofNullable(keyDistributor.next()), payloadData)
+            this.producer.sendAsync(Optional.ofNullable(keyDistributor.next()),
+                payloadData)
                     .thenRun(() -> {
                 messagesSent.increment();
                 totalMessagesSent.increment();
                 messagesSentCounter.inc();
                 bytesSent.add(payloadData.length);
                 bytesSentCounter.add(payloadData.length);
+
+                if (messagesSentMetadata.containsKey(producerID)) {
+                    long num = 1;
+                    if (messagesSentMetadata.get(producerID).containsKey(topic)) {
+                        num = messagesSentMetadata.get(producerID).get(topic);
+                        num++;
+                    }
+                    messagesSentMetadata.get(producerID).put(topic, num);
+                } else {
+                    ConcurrentHashMap<String, Long> topicMap = 
+                        new ConcurrentHashMap<>();
+                    topicMap.put(topic, Long.valueOf(1));
+                    messagesSentMetadata.put(producerID, topicMap);
+                }
 
                 long latencyMicros = TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - sendTime);
                 publishLatencyRecorder.recordValue(latencyMicros);
@@ -186,17 +210,24 @@ public class ApplicationWorker implements ConsumerCallback {
     public void startWorker(IndexConfig indexConfig) {
         String topicPrefix = benchmarkDriver.getTopicNamePrefix();
         
-        GeoHash sw = GeoHash.withCharacterPrecision(indexConfig.minX, indexConfig.minY, 7);
-        GeoHash ne = GeoHash.withCharacterPrecision(indexConfig.maxX, indexConfig.maxY, 7);
+        GeoHash sw = GeoHash.withCharacterPrecision(indexConfig.minX,
+            indexConfig.minY, 7);
+        GeoHash ne = GeoHash.withCharacterPrecision(indexConfig.maxX,
+            indexConfig.maxY, 7);
         TwoGeoHashBoundingBox bb1 = new TwoGeoHashBoundingBox(sw, ne);
         TwoGeoHashBoundingBox bb2 = bb1.withCharacterPrecision(bb1.getBoundingBox(), 7);
         BoundingBoxGeoHashIterator iterator = new BoundingBoxGeoHashIterator(bb2);
-        int count = 0;
+        int subCount = 0;
         while (iterator.hasNext()) {
             String topic = iterator.next().toBase32();
-            count++;
-            createConsumer(topicPrefix + topic);
-            log.info("Created consumer for topic {}", topic);
+            String subTopic = topic.substring(0, 6);
+            if (!hashTopics.contains(subTopic)) {
+                createConsumer(topicPrefix + subTopic);
+                subCount++;
+                hashTopics.add(subTopic);
+                log.info("Created consumer for topic {}", subTopic);
+            }
+            log.info("Created {} consumers", subCount);
         }
     }
 
@@ -204,8 +235,9 @@ public class ApplicationWorker implements ConsumerCallback {
         
         Timer timer = new Timer();
 
+        String topicPrefix = benchmarkDriver.getTopicNamePrefix();
         CompletableFuture<BenchmarkProducer> future = benchmarkDriver
-            .createProducer(topic);
+            .createProducer(topicPrefix + topic);
         BenchmarkProducer producer = future.join();
 
         ProducerTask producerTask = new ProducerTask(producer, producerID, topic,
@@ -241,6 +273,9 @@ public class ApplicationWorker implements ConsumerCallback {
         stats.publishLatency = publishLatencyRecorder.getIntervalHistogram();
         stats.endToEndLatency = endToEndLatencyRecorder.getIntervalHistogram();
 
+        stats.sentMetadata = messagesSentMetadata.toString();
+        stats.receivedMetadata = messagesReceivedMetadata.toString();
+
         return stats;
     }
 
@@ -267,10 +302,32 @@ public class ApplicationWorker implements ConsumerCallback {
     public void messageReceived(byte[] payload, long publishTimestamp,
         String subscriptionName) {
 
+        String s = new String(payload, StandardCharsets.UTF_8);
+        Pattern p = Pattern.compile("CLIENT_ID: .+");
+        Matcher matcher = p.matcher(s);
+        String matched = null;
+        if (matcher.find()) {
+            matched = matcher.group();
+            if (messagesReceivedMetadata.containsKey(subscriptionName)) {
+                long num = 1;
+                if (messagesReceivedMetadata.get(subscriptionName)
+                    .containsKey(matched)) {
+                    num = messagesReceivedMetadata.get(subscriptionName).get(matched);
+                    num++;
+                }
+                messagesReceivedMetadata.get(subscriptionName).put(matched, num);
+            } else {
+                ConcurrentHashMap<String, Long> topicMap = new ConcurrentHashMap<>();
+                topicMap.put(matched, Long.valueOf(1));
+                messagesReceivedMetadata.put(subscriptionName, topicMap);
+            }
+        }
+
         Triplet<BenchmarkConsumer, Boolean, String> triplet = 
             consumers.get(subscriptionName);
         if (!triplet.getValue1()){
-            String newTopic = new String(triplet.getValue2()) + "-app";
+            String[] split = matched.split(":");
+            String newTopic = split[2] + "-app";
             createProducer(newTopic, subscriptionName, payload);
             consumers.put(subscriptionName, new Triplet<BenchmarkConsumer,
                 Boolean, String>(triplet.getValue0(), true, triplet.getValue2())
@@ -298,6 +355,10 @@ public class ApplicationWorker implements ConsumerCallback {
         cumulativePublishLatencyRecorder.reset();
         endToEndLatencyRecorder.reset();
         endToEndCumulativeLatencyRecorder.reset();
+        messagesSentMetadata = new ConcurrentHashMap<String,
+            ConcurrentHashMap<String, Long>>();
+        messagesReceivedMetadata = new ConcurrentHashMap<String,
+            ConcurrentHashMap<String, Long>>();
     }
 
     public void stopAll() throws IOException {
