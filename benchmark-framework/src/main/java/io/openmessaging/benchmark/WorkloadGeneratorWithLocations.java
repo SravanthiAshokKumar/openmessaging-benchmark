@@ -136,8 +136,8 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                     }
                     // create consumer/producer and subscribe/publish
                     try {
-                        String addData = " CLIENT_ID: " + clientID 
-                            + "--Topic: " + producerTopic;
+                        String addData = " CLIENT_ID:" + clientID 
+                            + "--Topic:" + producerTopic;
                         byte[] appendBytes = addData.getBytes();
                         byte[] finalPayload = ArrayUtils.addAll(payloadData,
                             appendBytes);

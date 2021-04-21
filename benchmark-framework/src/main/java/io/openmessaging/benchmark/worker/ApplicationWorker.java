@@ -9,6 +9,7 @@ import static java.util.stream.Collectors.toList;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -54,7 +55,7 @@ import org.apache.bookkeeper.stats.NullStatsLogger;
 import org.apache.bookkeeper.stats.OpStatsLogger;
 import org.apache.bookkeeper.stats.StatsLogger;
 import org.HdrHistogram.Recorder;
-import org.javatuples.Triplet;
+import org.javatuples.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,14 +63,15 @@ public class ApplicationWorker implements ConsumerCallback {
     
     private BenchmarkDriver benchmarkDriver = null;
 
-    // consumer map contains the mapping of SubscriptionName to a Triplet of 
-    // (BenchmarkConsumer, Boolean for topic_active, topic)
-    private Map<String, Triplet<BenchmarkConsumer, Boolean, String>> consumers =
-        new ConcurrentHashMap<>();
+    private Map<String, BenchmarkConsumer> consumers = new ConcurrentHashMap<>();
+
+    private Map<String, Pair<Boolean, Instant>> activeMap = new ConcurrentHashMap<>();
+
+    private Map<String, BenchmarkProducer> producerTopics = new ConcurrentHashMap<>();
 
     // defining stats
     private final StatsLogger statsLogger;
-
+    
     private final LongAdder messagesSent = new LongAdder();
     private final LongAdder bytesSent = new LongAdder();
     private final Counter messagesSentCounter;
@@ -102,11 +104,14 @@ public class ApplicationWorker implements ConsumerCallback {
 
     private Set<String> hashTopics = new HashSet<String>();
 
+    private Boolean done = true;
+
     class ProducerTask implements Runnable {
         private BenchmarkProducer producer;
         private String producerID;
         private String topic;
         private byte[] payloadData;
+        private RateLimiter rateLimiter = RateLimiter.create(10);
         private KeyDistributor keyDistributor;
     
         public ProducerTask(BenchmarkProducer producer, String producerID, String topic,
@@ -121,21 +126,27 @@ public class ApplicationWorker implements ConsumerCallback {
         public void run(){
             try {
                 log.info("running producer task for topic {}", this.topic);
-                runTask();
+                while(done) {
+                    if (activeMap.get(producerID).getValue0()) {
+                        activeMap.put(producerID, new Pair<Boolean, Instant>(false, 
+                            activeMap.get(producerID).getValue1()));
+                        runTask();
+                    } else {
+                        Thread.sleep(5);
+                        Instant now = Instant.now();
+                        long diff = Duration.between(activeMap.get(producerID).getValue1(),
+                            now).toMillis();
+                        if (diff > 1000) {
+                            break;
+                        }
+                    }
+                }
             } catch(Exception e) {
                 log.error("Could NOT create ProducerTask because {}", e.getMessage());
             }
         }
         
         public void runTask() {
-            Triplet<BenchmarkConsumer, Boolean, String> triplet = 
-                consumers.get(producerID);
-            consumers.put(producerID, new Triplet<BenchmarkConsumer, Boolean, String>(
-                triplet.getValue0(), false, triplet.getValue2())
-            );
-            
-            Timer timer = new Timer();
-            
             final long sendTime = System.nanoTime();
             this.producer.sendAsync(Optional.ofNullable(keyDistributor.next()),
                 payloadData)
@@ -160,10 +171,12 @@ public class ApplicationWorker implements ConsumerCallback {
                     messagesSentMetadata.put(producerID, topicMap);
                 }
 
-                long latencyMicros = TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - sendTime);
+                long latencyMicros = TimeUnit.NANOSECONDS.toMicros(
+                    System.nanoTime() - sendTime);
                 publishLatencyRecorder.recordValue(latencyMicros);
                 cumulativePublishLatencyRecorder.recordValue(latencyMicros);
-                publishLatencyStats.registerSuccessfulEvent(latencyMicros, TimeUnit.MICROSECONDS);
+                publishLatencyStats.registerSuccessfulEvent(latencyMicros,
+                    TimeUnit.MICROSECONDS);
             }).exceptionally(ex -> {
                 log.warn("Write error on message", ex.getMessage());
                 return null;
@@ -230,22 +243,20 @@ public class ApplicationWorker implements ConsumerCallback {
             log.info("Created {} consumers", subCount);
         }
     }
-
+    
     public void createProducer(String topic, String producerID, byte[] payload) {
-        
-        Timer timer = new Timer();
-
+        Timer timer = new Timer(); 
+        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
         String topicPrefix = benchmarkDriver.getTopicNamePrefix();
+        String finalTopic = topicPrefix.concat(topic);
         CompletableFuture<BenchmarkProducer> future = benchmarkDriver
-            .createProducer(topicPrefix + topic);
+            .createProducer(finalTopic);
         BenchmarkProducer producer = future.join();
 
         ProducerTask producerTask = new ProducerTask(producer, producerID, topic,
             payload);
-        ScheduledExecutorService executor = Executors
-            .newSingleThreadScheduledExecutor();
-        executor.schedule(producerTask, 100, TimeUnit.MILLISECONDS);
-
+        producerTopics.put(topic, producer);
+        executor.execute(producerTask);
         log.info("Created producer in {} ms, topic {}", timer.elapsedMillis(), topic);
     }
 
@@ -254,8 +265,7 @@ public class ApplicationWorker implements ConsumerCallback {
         Timer timer = new Timer();
         BenchmarkConsumer bConsumer = benchmarkDriver
             .createConsumer(topic, subscription, this).join();
-        consumers.put(subscription, new Triplet<BenchmarkConsumer, Boolean, String>(
-            bConsumer, false, topic));
+        consumers.put(subscription, bConsumer);
         log.info("Created consumer in {} ms", timer.elapsedMillis());
     }
 
@@ -305,9 +315,8 @@ public class ApplicationWorker implements ConsumerCallback {
         String s = new String(payload, StandardCharsets.UTF_8);
         Pattern p = Pattern.compile("CLIENT_ID: .+");
         Matcher matcher = p.matcher(s);
-        String matched = null;
         if (matcher.find()) {
-            matched = matcher.group();
+            String matched = matcher.group();
             if (messagesReceivedMetadata.containsKey(subscriptionName)) {
                 long num = 1;
                 if (messagesReceivedMetadata.get(subscriptionName)
@@ -321,17 +330,23 @@ public class ApplicationWorker implements ConsumerCallback {
                 topicMap.put(matched, Long.valueOf(1));
                 messagesReceivedMetadata.put(subscriptionName, topicMap);
             }
-        }
 
-        Triplet<BenchmarkConsumer, Boolean, String> triplet = 
-            consumers.get(subscriptionName);
-        if (!triplet.getValue1()){
             String[] split = matched.split(":");
             String newTopic = split[2] + "-app";
-            createProducer(newTopic, subscriptionName, payload);
-            consumers.put(subscriptionName, new Triplet<BenchmarkConsumer,
-                Boolean, String>(triplet.getValue0(), true, triplet.getValue2())
-            );
+
+            Instant now = Instant.now();
+            Pair<Boolean, Instant> pair = new Pair<Boolean, Instant>(true, now);
+            if (!activeMap.containsKey(split[2])) {
+                activeMap.put(split[2], pair);
+                createProducer(newTopic, split[2], payload);
+            } else {
+                long diff = Duration.between(activeMap.get(split[2]).getValue1(), now).toMillis();
+                if (diff > 200) {
+                    activeMap.put(split[2], pair);
+                }
+            }
+        } else {
+            log.warn("Topic not found");
         }
 
         messagesReceived.increment();
@@ -362,6 +377,8 @@ public class ApplicationWorker implements ConsumerCallback {
     }
 
     public void stopAll() throws IOException {
+        done = false;
+
         publishLatencyRecorder.reset();
         cumulativePublishLatencyRecorder.reset();
         endToEndLatencyRecorder.reset();
@@ -375,9 +392,9 @@ public class ApplicationWorker implements ConsumerCallback {
         totalMessagesReceived.reset();
 
         try {
-            consumers.forEach((k, triplet) -> {
+            consumers.forEach((k, bConsumer) -> {
                 try{
-                    triplet.getValue0().close();
+                    bConsumer.close();
                 } catch (Exception ex) {
                     log.warn("Error occured while closing the consumer connection, {}", ex);
                 }

@@ -44,7 +44,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.base.Preconditions;
-import com.google.common.util.concurrent.RateLimiter;   
+import com.google.common.util.concurrent.RateLimiter;
 
 import org.apache.bookkeeper.stats.Counter;
 import org.apache.bookkeeper.stats.NullStatsLogger;
@@ -213,7 +213,6 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         
         public void runTask() {
             Timer timer = new Timer();
-            
             final long sendTime = System.nanoTime();
             this.producer.sendAsync(Optional.ofNullable(keyDistributor.next()), payloadData)
                     .thenRun(() -> {
