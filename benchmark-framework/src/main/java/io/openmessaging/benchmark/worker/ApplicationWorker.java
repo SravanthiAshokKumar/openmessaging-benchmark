@@ -111,7 +111,6 @@ public class ApplicationWorker implements ConsumerCallback {
         private String producerID;
         private String topic;
         private byte[] payloadData;
-        private RateLimiter rateLimiter = RateLimiter.create(10);
         private KeyDistributor keyDistributor;
     
         public ProducerTask(BenchmarkProducer producer, String producerID, String topic,
