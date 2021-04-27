@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 import io.openmessaging.benchmark.TestResult;
 import io.openmessaging.benchmark.worker.ApplicationWorker;
@@ -36,8 +37,8 @@ public class ApplicationWorkerBenchmark {
         @Parameter(names = {"-o", "--outdir"}, description = "Output file dir")
         public String outdir;
 
-        @Parameter(description = "Index Config", required = true)
-        public List<String> indexConfigs;
+        @Parameter(description = "TopicsFile", required = true)
+        public List<String> topicsFile;
     }
 
     private static volatile boolean needToWaitForBacklogDraining = false;
@@ -60,9 +61,9 @@ public class ApplicationWorkerBenchmark {
         driverName = arguments.drivers.get(0);
         applicationWorker.initializeDriver(new File(arguments.drivers.get(0)));
 
-        IndexConfig indexConfig = mapper.readValue(
-            new File(arguments.indexConfigs.get(0)), IndexConfig.class);
-        applicationWorker.startWorker(indexConfig);
+        List<String> topicList = mapper.readValue(
+            new File(arguments.topicsFile.get(0)), new TypeReference<List<String>>(){});
+        applicationWorker.startWorker(topicList);
         log.info("Finished creating consumers for the entire area");
 
         List<TestResult> result = printAndCollectStats(2, TimeUnit.MINUTES);

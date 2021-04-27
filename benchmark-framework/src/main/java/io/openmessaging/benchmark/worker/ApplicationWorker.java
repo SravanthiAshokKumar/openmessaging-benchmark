@@ -102,8 +102,6 @@ public class ApplicationWorker implements ConsumerCallback {
     private Map<String, ConcurrentHashMap<String, Long>> messagesReceivedMetadata = 
         new ConcurrentHashMap<String, ConcurrentHashMap<String, Long>>();
 
-    private Set<String> hashTopics = new HashSet<String>();
-
     private Boolean done = true;
 
     class ProducerTask implements Runnable {
@@ -219,29 +217,38 @@ public class ApplicationWorker implements ConsumerCallback {
         }
     }
 
-    public void startWorker(IndexConfig indexConfig) {
+    public void startWorker(List<String> topicList) {
         String topicPrefix = benchmarkDriver.getTopicNamePrefix();
-        
-        GeoHash sw = GeoHash.withCharacterPrecision(indexConfig.minX,
-            indexConfig.minY, 7);
-        GeoHash ne = GeoHash.withCharacterPrecision(indexConfig.maxX,
-            indexConfig.maxY, 7);
-        TwoGeoHashBoundingBox bb1 = new TwoGeoHashBoundingBox(sw, ne);
-        TwoGeoHashBoundingBox bb2 = bb1.withCharacterPrecision(bb1.getBoundingBox(), 7);
-        BoundingBoxGeoHashIterator iterator = new BoundingBoxGeoHashIterator(bb2);
-        int subCount = 0;
-        while (iterator.hasNext()) {
-            String topic = iterator.next().toBase32();
-            String subTopic = topic.substring(0, 6);
-            if (!hashTopics.contains(subTopic)) {
-                createConsumer(topicPrefix + subTopic);
-                subCount++;
-                hashTopics.add(subTopic);
-                log.info("Created consumer for topic {}", subTopic);
-            }
-            log.info("Created {} consumers", subCount);
+        for (String topic : topicList) {
+            createConsumer(topicPrefix + topic);
+            log.info("Created consumer for topic {}", topic);
         }
+        log.info("Created {} consumers", topicList.size());
     }
+
+    // public void startWorker_OG(IndexConfig indexConfig) {
+    //     String topicPrefix = benchmarkDriver.getTopicNamePrefix();
+        
+    //     GeoHash sw = GeoHash.withCharacterPrecision(indexConfig.minX,
+    //         indexConfig.minY, 7);
+    //     GeoHash ne = GeoHash.withCharacterPrecision(indexConfig.maxX,
+    //         indexConfig.maxY, 7);
+    //     TwoGeoHashBoundingBox bb1 = new TwoGeoHashBoundingBox(sw, ne);
+    //     TwoGeoHashBoundingBox bb2 = bb1.withCharacterPrecision(bb1.getBoundingBox(), 7);
+    //     BoundingBoxGeoHashIterator iterator = new BoundingBoxGeoHashIterator(bb2);
+    //     int subCount = 0;
+    //     while (iterator.hasNext()) {
+    //         String topic = iterator.next().toBase32();
+    //         String subTopic = topic.substring(0, 6);
+    //         if (!hashTopics.contains(subTopic)) {
+    //             createConsumer(topicPrefix + subTopic);
+    //             subCount++;
+    //             hashTopics.add(subTopic);
+    //             log.info("Created consumer for topic {}", subTopic);
+    //         }
+    //     }
+    //     log.info("Created {} consumers", subCount);
+    // }
     
     public void createProducer(String topic, String producerID, byte[] payload) {
         Timer timer = new Timer(); 
