@@ -421,7 +421,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         bytesReceivedCounter.add(data.length);
 
         String s = new String(data, StandardCharsets.UTF_8);
-        Pattern p = Pattern.compile("CLIENT_ID: .+");
+        Pattern p = Pattern.compile("CLIENT_ID:.+");
         Matcher matcher = p.matcher(s);
         if (matcher.find()) {
             String matched = matcher.group();

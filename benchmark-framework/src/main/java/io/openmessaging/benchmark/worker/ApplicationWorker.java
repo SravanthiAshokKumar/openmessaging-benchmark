@@ -319,7 +319,7 @@ public class ApplicationWorker implements ConsumerCallback {
         String subscriptionName) {
 
         String s = new String(payload, StandardCharsets.UTF_8);
-        Pattern p = Pattern.compile("CLIENT_ID: .+");
+        Pattern p = Pattern.compile("CLIENT_ID:.+");
         Matcher matcher = p.matcher(s);
         if (matcher.find()) {
             String matched = matcher.group();
@@ -352,7 +352,7 @@ public class ApplicationWorker implements ConsumerCallback {
                 }
             }
         } else {
-            log.warn("Topic not found");
+            log.warn("Topic not found: {}", s);
         }
 
         messagesReceived.increment();
