@@ -82,7 +82,8 @@ public class TestResult {
     public List<Double> subscriptionChangeLatency75pct = new ArrayList<>();
     public List<Double> subscriptionChangeLatency95pct = new ArrayList<>();
     public List<Double> subscriptionChangeLatency99pct = new ArrayList<>();
-     public List<Double> subscriptionChangeLatencyMax = new ArrayList<>();
+    public List<Double> subscriptionChangeLatencyMax = new ArrayList<>();
+    public List<Double> subscriptionChangeList = new ArrayList<>();
  
     public double aggregatedsubscriptionChangeLatencyAvg;
     public double aggregatedsubscriptionChangeLatency50pct;

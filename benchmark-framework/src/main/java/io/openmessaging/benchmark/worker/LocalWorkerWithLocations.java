@@ -98,6 +98,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
 
     private final Recorder subscriptionChangeLatencyRecorder = new Recorder(
         TimeUnit.SECONDS.toMicros(60), 5);
+    private List<Double> subscriptionChangeList = new ArrayList<>();
     private final Recorder subscriptionChangeCumulativeLatencyRecorder = new Recorder(
         TimeUnit.SECONDS.toMicros(60), 5);
 
@@ -172,6 +173,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
             }
 
             subscriptionChangeLatencyRecorder.recordValue((long) curSubTime);
+            subscriptionChangeList.add(new Double(curSubTime));
             subscriptionChangeCumulativeLatencyRecorder.recordValue((long) curSubTime);
         }
     }
@@ -384,6 +386,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
 
         stats.subscriptionChangeLatency = 
             subscriptionChangeLatencyRecorder.getIntervalHistogram();
+        stats.subscriptionChangeList = subscriptionChangeList;
         stats.sentMetadata = messagesSentMetadata.toString();
         stats.receivedMetadata = messagesReceivedMetadata.toString();
 

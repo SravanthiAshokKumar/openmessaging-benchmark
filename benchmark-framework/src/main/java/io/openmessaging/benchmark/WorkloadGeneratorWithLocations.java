@@ -344,6 +344,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
         result.subscriptionChangeLatency95pct.add(microsToMillis(stats.subscriptionChangeLatency.getValueAtPercentile(95)));
         result.subscriptionChangeLatency99pct.add(microsToMillis(stats.subscriptionChangeLatency.getValueAtPercentile(99)));
         result.subscriptionChangeLatencyMax.add(microsToMillis(stats.subscriptionChangeLatency.getMaxValue()));
+        result.subscriptionChangeList = stats.subscriptionChangeList;
 
         log.info(
             "----- Aggregated Pub Latency (ms) avg: {} - 50%: {} - 95%: {} - 99%: {} - 99.9%: {} - 99.99%: {} - Max: {}",

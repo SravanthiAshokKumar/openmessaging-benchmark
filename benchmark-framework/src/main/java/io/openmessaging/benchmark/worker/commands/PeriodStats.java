@@ -19,6 +19,8 @@
 package io.openmessaging.benchmark.worker.commands;
 
 import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.HdrHistogram.Histogram;
 
@@ -45,7 +47,9 @@ public class PeriodStats {
     @JsonIgnore
     public Histogram subscriptionChangeLatency = new Histogram(TimeUnit.SECONDS.toMicros(60), 5);
     public byte[] subscriptionChangeLatencyBytes;
+    public List<Double> subscriptionChangeList;
 
     public String sentMetadata;
     public String receivedMetadata;
+
 }
