@@ -47,9 +47,9 @@ public class PeriodStats {
     @JsonIgnore
     public Histogram subscriptionChangeLatency = new Histogram(TimeUnit.SECONDS.toMicros(60), 5);
     public byte[] subscriptionChangeLatencyBytes;
-    public List<Double> subscriptionChangeList;
 
     public String sentMetadata;
     public String receivedMetadata;
 
+    public Integer totalRequestsCompleted;
 }

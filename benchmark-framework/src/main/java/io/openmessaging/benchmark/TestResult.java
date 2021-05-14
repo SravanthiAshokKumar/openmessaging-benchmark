@@ -83,8 +83,7 @@ public class TestResult {
     public List<Double> subscriptionChangeLatency95pct = new ArrayList<>();
     public List<Double> subscriptionChangeLatency99pct = new ArrayList<>();
     public List<Double> subscriptionChangeLatencyMax = new ArrayList<>();
-    public List<Double> subscriptionChangeList = new ArrayList<>();
- 
+    
     public double aggregatedsubscriptionChangeLatencyAvg;
     public double aggregatedsubscriptionChangeLatency50pct;
     public double aggregatedsubscriptionChangeLatency75pct;
@@ -94,6 +93,7 @@ public class TestResult {
 
     public String sentMetadata;
     public String receivedMetadata;
+    public Map<Double, Integer> totalRequestsCompletedMap;
 
     public Map<String, List<List<String>>> allConsumerTopics;
     public Map<String, List<String>> allProducerTopics;

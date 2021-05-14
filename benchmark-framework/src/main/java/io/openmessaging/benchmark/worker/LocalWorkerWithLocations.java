@@ -11,6 +11,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -95,10 +97,11 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         TimeUnit.HOURS.toMicros(12), 5);
     private final OpStatsLogger endToEndLatencyStats;
 
-
     private final Recorder subscriptionChangeLatencyRecorder = new Recorder(
         TimeUnit.SECONDS.toMicros(60), 5);
-    private List<Double> subscriptionChangeList = new ArrayList<>();
+    private final Lock lock = new ReentrantLock();
+    private Integer totalRequestsCompleted;
+
     private final Recorder subscriptionChangeCumulativeLatencyRecorder = new Recorder(
         TimeUnit.SECONDS.toMicros(60), 5);
 
@@ -162,6 +165,13 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
             double curSubTime = timer.elapsedMillis();
             log.info("Created {} consumers in {} ms", count, curSubTime);
 
+            lock.lock();
+            try {
+                totalRequestsCompleted++;
+            } finally {
+                lock.unlock();
+            }
+
             consumers.put(this.subscription, newTc);
 
             for (Entry<String, BenchmarkConsumer> e : oldTc.entrySet()) {
@@ -173,7 +183,6 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
             }
 
             subscriptionChangeLatencyRecorder.recordValue((long) curSubTime);
-            subscriptionChangeList.add(new Double(curSubTime));
             subscriptionChangeCumulativeLatencyRecorder.recordValue((long) curSubTime);
         }
     }
@@ -386,7 +395,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
 
         stats.subscriptionChangeLatency = 
             subscriptionChangeLatencyRecorder.getIntervalHistogram();
-        stats.subscriptionChangeList = subscriptionChangeList;
+        stats.totalRequestsCompleted = totalRequestsCompleted;
         stats.sentMetadata = messagesSentMetadata.toString();
         stats.receivedMetadata = messagesReceivedMetadata.toString();
 

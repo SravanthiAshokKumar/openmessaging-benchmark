@@ -53,6 +53,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
         = new HashMap<>();
     private Map<String, List<String>> allProducerTopics = new HashMap<>();
     private Map<String, String> consumerToSubName = new HashMap<>();
+    private Map<Double, Integer> totalRequestsCompletedMap = new HashMap<>();
     
     public WorkloadGeneratorWithLocations(String driverName, Workload workload,
         Worker worker, String locations) {
@@ -267,8 +268,10 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                 break;
             }
             stats = worker.getPeriodStats();
+            totalRequestsCompletedMap.put(new Double(System.currentTimeMillis()),
+                stats.totalRequestsCompleted);
             agg = worker.getCumulativeLatencies();
-            results.set(0, gateherResults(stats, testDurations, unit, agg));
+            results.set(0, gatherResults(stats, testDurations, unit, agg));
             
             if (now >= testEndTime && !needToWaitForBacklogDraining) {
                 break;
@@ -279,7 +282,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
         return results;
     }
 
-    private TestResult gateherResults(PeriodStats stats, long testDurations, TimeUnit unit,
+    private TestResult gatherResults(PeriodStats stats, long testDurations, TimeUnit unit,
         CumulativeLatencies agg) {
         TestResult result = new TestResult();
         result.workload = workload.name;
@@ -338,13 +341,13 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
         result.endToEndLatency9999pct.add(microsToMillis(stats.endToEndLatency.getValueAtPercentile(99.99)));
         result.endToEndLatencyMax.add(microsToMillis(stats.endToEndLatency.getMaxValue()));
 
-        result.subscriptionChangeLatencyAvg.add(microsToMillis(stats.subscriptionChangeLatency.getMean()));
-        result.subscriptionChangeLatency50pct.add(microsToMillis(stats.subscriptionChangeLatency.getValueAtPercentile(50)));
-        result.subscriptionChangeLatency75pct.add(microsToMillis(stats.subscriptionChangeLatency.getValueAtPercentile(75)));
-        result.subscriptionChangeLatency95pct.add(microsToMillis(stats.subscriptionChangeLatency.getValueAtPercentile(95)));
-        result.subscriptionChangeLatency99pct.add(microsToMillis(stats.subscriptionChangeLatency.getValueAtPercentile(99)));
-        result.subscriptionChangeLatencyMax.add(microsToMillis(stats.subscriptionChangeLatency.getMaxValue()));
-        result.subscriptionChangeList = stats.subscriptionChangeList;
+        result.subscriptionChangeLatencyAvg.add(stats.subscriptionChangeLatency.getMean());
+        result.subscriptionChangeLatency50pct.add(new Double(stats.subscriptionChangeLatency.getValueAtPercentile(50)));
+        result.subscriptionChangeLatency75pct.add(new Double(stats.subscriptionChangeLatency.getValueAtPercentile(75)));
+        result.subscriptionChangeLatency95pct.add(new Double(stats.subscriptionChangeLatency.getValueAtPercentile(95)));
+        result.subscriptionChangeLatency99pct.add(new Double(stats.subscriptionChangeLatency.getValueAtPercentile(99)));
+        result.subscriptionChangeLatencyMax.add(new Double(stats.subscriptionChangeLatency.getMaxValue()));
+        result.totalRequestsCompletedMap = totalRequestsCompletedMap;
 
         log.info(
             "----- Aggregated Pub Latency (ms) avg: {} - 50%: {} - 95%: {} - 99%: {} - 99.9%: {} - 99.99%: {} - Max: {}",
