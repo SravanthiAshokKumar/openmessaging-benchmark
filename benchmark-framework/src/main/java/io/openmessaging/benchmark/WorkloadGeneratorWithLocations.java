@@ -270,6 +270,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
             stats = worker.getPeriodStats();
             totalRequestsCompletedMap.put(new Double(System.currentTimeMillis()),
                 stats.totalRequestsCompleted);
+	    log.warn("totalRequestsCompleted workload generator: {}", stats.totalRequestsCompleted);
             agg = worker.getCumulativeLatencies();
             results.set(0, gatherResults(stats, testDurations, unit, agg));
             

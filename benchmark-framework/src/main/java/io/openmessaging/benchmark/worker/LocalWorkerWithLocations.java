@@ -100,7 +100,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
     private final Recorder subscriptionChangeLatencyRecorder = new Recorder(
         TimeUnit.SECONDS.toMicros(60), 5);
     private final Lock lock = new ReentrantLock();
-    private Integer totalRequestsCompleted;
+    private Integer totalRequestsCompleted = 0;
 
     private final Recorder subscriptionChangeCumulativeLatencyRecorder = new Recorder(
         TimeUnit.SECONDS.toMicros(60), 5);
@@ -167,7 +167,7 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
 
             lock.lock();
             try {
-                totalRequestsCompleted++;
+                totalRequestsCompleted += 1;
             } finally {
                 lock.unlock();
             }
@@ -396,7 +396,8 @@ public class LocalWorkerWithLocations implements Worker, ConsumerCallback {
         stats.subscriptionChangeLatency = 
             subscriptionChangeLatencyRecorder.getIntervalHistogram();
         stats.totalRequestsCompleted = totalRequestsCompleted;
-        stats.sentMetadata = messagesSentMetadata.toString();
+        log.warn("totalRequestsCompleted worker with locations: {}", totalRequestsCompleted);
+	stats.sentMetadata = messagesSentMetadata.toString();
         stats.receivedMetadata = messagesReceivedMetadata.toString();
 
         return stats;
