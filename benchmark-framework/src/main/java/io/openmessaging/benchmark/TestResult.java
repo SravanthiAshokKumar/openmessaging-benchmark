@@ -93,7 +93,7 @@ public class TestResult {
 
     public String sentMetadata;
     public String receivedMetadata;
-    public Map<Double, Integer> totalRequestsCompletedMap;
+    public List<Integer> totalRequestsCompletedList;
 
     public Map<String, List<List<String>>> allConsumerTopics;
     public Map<String, List<String>> allProducerTopics;

@@ -53,7 +53,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
         = new HashMap<>();
     private Map<String, List<String>> allProducerTopics = new HashMap<>();
     private Map<String, String> consumerToSubName = new HashMap<>();
-    private Map<Double, Integer> totalRequestsCompletedMap = new HashMap<>();
+    private List<Integer> totalRequestsCompletedList = new ArrayList<>();
     
     public WorkloadGeneratorWithLocations(String driverName, Workload workload,
         Worker worker, String locations) {
@@ -268,8 +268,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
                 break;
             }
             stats = worker.getPeriodStats();
-            totalRequestsCompletedMap.put(new Double(System.currentTimeMillis()),
-                stats.totalRequestsCompleted);
+            totalRequestsCompletedList.add(stats.totalRequestsCompleted);
 	    log.warn("totalRequestsCompleted workload generator: {}", stats.totalRequestsCompleted);
             agg = worker.getCumulativeLatencies();
             results.set(0, gatherResults(stats, testDurations, unit, agg));
@@ -348,7 +347,7 @@ public class WorkloadGeneratorWithLocations implements WorkloadGeneratorInterfac
         result.subscriptionChangeLatency95pct.add(new Double(stats.subscriptionChangeLatency.getValueAtPercentile(95)));
         result.subscriptionChangeLatency99pct.add(new Double(stats.subscriptionChangeLatency.getValueAtPercentile(99)));
         result.subscriptionChangeLatencyMax.add(new Double(stats.subscriptionChangeLatency.getMaxValue()));
-        result.totalRequestsCompletedMap = totalRequestsCompletedMap;
+        result.totalRequestsCompletedList = totalRequestsCompletedList;
 
         log.info(
             "----- Aggregated Pub Latency (ms) avg: {} - 50%: {} - 95%: {} - 99%: {} - 99.9%: {} - 99.99%: {} - Max: {}",
